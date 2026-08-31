@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+puzzle_type = 1
+prompt_text = "Şekilleri tamamla"
+correct_answer = ""
+answer_choices = Array[String]([])
+choice_colors = Array[Color]([])
+match_id = "shape_lvl9"
+piece_a_color = Color(0.92, 0.35, 0.58, 1)
+piece_b_color = Color(0.22, 0.75, 0.95, 1)
+piece_a_polygon = PackedVector2Array(-40, -50, 40, -50, 70, 0, -70, 0)
+piece_b_polygon = PackedVector2Array(-70, 0, 70, 0, 40, 50, -40, 50)
+shape_a_spawn_pos = Vector2(220, 900)
+shape_b_spawn_pos = Vector2(500, 900)
+shape_a_target_pos = Vector2(360, 640)
+shape_b_target_pos = Vector2(360, 640)

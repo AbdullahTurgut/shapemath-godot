@@ -64,12 +64,16 @@ func _ready() -> void:
 
 func _ensure_levels_loaded() -> void:
 	if levels.is_empty():
-		for i in range(1, 6):
+		var i: int = 1
+		while true:
 			var path: String = "res://data/levels/level_%02d.tres" % i
 			if ResourceLoader.exists(path):
 				var lvl: LevelData = load(path)
 				if lvl:
 					levels.append(lvl)
+				i += 1
+			else:
+				break
 
 
 func _cancel_pending_transition() -> void:
