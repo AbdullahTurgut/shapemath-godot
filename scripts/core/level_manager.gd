@@ -20,7 +20,6 @@ signal level_reset
 @export var level_indicator_label: Label
 @export var streak_label: Label
 @export var next_button: Button
-@export var restart_button: Button
 
 # Run Summary UI References
 @export_group("Run Summary UI")
@@ -58,8 +57,6 @@ func _ready() -> void:
 	is_run_completed = false
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
-	if restart_button and not restart_button.pressed.is_connected(reset_level):
-		restart_button.pressed.connect(reset_level)
 	if play_again_button and not play_again_button.pressed.is_connected(start_new_run):
 		play_again_button.pressed.connect(start_new_run)
 	if next_button and not next_button.pressed.is_connected(advance_to_next_level):
@@ -118,8 +115,6 @@ func load_level(index: int) -> void:
 	# Reset UI
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
-	if restart_button:
-		restart_button.visible = true
 	if success_label:
 		success_label.visible = false
 		success_label.scale = Vector2.ONE
@@ -376,7 +371,7 @@ func _on_completion() -> void:
 	if next_button:
 		next_button.visible = false
 
-	# Schedule automatic transition for Levels 1 to 4, or summary overlay for Level 5
+	# Schedule automatic transition for Levels 1 to 14, or summary overlay for Level 15
 	if current_level_index < levels.size() - 1:
 		_cancel_pending_transition()
 		transition_tween = create_tween()
@@ -409,8 +404,6 @@ func _show_run_complete_overlay() -> void:
 	if feedback_manager:
 		feedback_manager.play_run_complete()
 
-	if restart_button:
-		restart_button.visible = false
 	if prompt_label:
 		prompt_label.visible = false
 	if success_label:
@@ -447,8 +440,6 @@ func start_new_run() -> void:
 		run_complete_overlay.visible = false
 		run_complete_overlay.modulate.a = 1.0
 
-	if restart_button:
-		restart_button.visible = true
 	if prompt_label:
 		prompt_label.visible = true
 
@@ -502,15 +493,13 @@ func advance_to_next_level() -> void:
 
 
 func reset_level() -> void:
-	print("RESTARTING CURRENT LEVEL: %d (Resetting streak)" % [current_level_index + 1])
+	print("RESETTING CURRENT LEVEL: %d (Resetting streak)" % [current_level_index + 1])
 	_cancel_pending_transition()
 	is_run_completed = false
 	current_streak = 0
 
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
-	if restart_button:
-		restart_button.visible = true
 	if prompt_label:
 		prompt_label.visible = true
 

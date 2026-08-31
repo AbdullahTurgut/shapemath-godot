@@ -14,7 +14,7 @@ func _sync_physics() -> void:
 	await physics_frame
 
 func _run_tests() -> void:
-	print("--- BEGINNING STEP 10B-3 & RESTART VERIFICATION TEST SUITE ---")
+	print("--- BEGINNING 15-LEVEL AUTOMATED PROGRESSION TEST SUITE ---")
 	var main_scene: PackedScene = load("res://scenes/main.tscn")
 	var main_node: Node2D = main_scene.instantiate()
 	root.add_child(main_node)
@@ -24,7 +24,6 @@ func _run_tests() -> void:
 	await _sync_physics()
 
 	var level_manager: LevelManager = main_node.get_node("LevelManager") as LevelManager
-	var restart_btn: Button = main_node.get_node("RestartButton") as Button
 	var level_lbl: Label = main_node.get_node("LevelIndicatorLabel") as Label
 	var streak_lbl: Label = main_node.get_node("StreakLabel") as Label
 	var prompt_lbl: Label = main_node.get_node("PromptLabel") as Label
@@ -42,9 +41,6 @@ func _run_tests() -> void:
 	assert(not overlay.visible, "Overlay must be hidden initially")
 	assert(level_manager.current_streak == 0 and level_manager.best_streak_this_run == 0, "Initial streaks must be 0")
 	assert(level_lbl.text == "Bölüm 1 / 15", "Initial indicator must show Bölüm 1 / 15")
-
-	# Verify RestartButton signal connection
-	assert(restart_btn.pressed.is_connected(level_manager.reset_level) or restart_btn.pressed.is_connected(main_node._on_restart_button_pressed), "RestartButton must be connected")
 
 	# Helper for math solves
 	var solve_math = func(expected_ans: String) -> void:
@@ -152,25 +148,20 @@ func _run_tests() -> void:
 	assert(level_lbl.text == "Bölüm 12 / 15", "Indicator shows Bölüm 12 / 15")
 	assert(level_manager.current_streak == 11, "Streak 11")
 
-	# --- TEST SCENARIO C: LEVEL 12 (DIAMOND SHAPE) RESTART & SOLVE ---
-	print("\n[SCENARIO C] Level 12 (Diamond Shape) -> Test Restart on shape level -> Reset pieces & streak")
+	# --- TEST SCENARIO C: LEVEL 12 (DIAMOND SHAPE) INVALID DROP RETRY & SOLVE ---
+	print("\n[SCENARIO C] Level 12 (Diamond Shape) -> Invalid drop resets streak to 0, immediate retry solves")
 	assert(prompt_lbl.text == "Şekli tamamla", "Level 12 prompt shows 'Şekli tamamla'")
-	var reset_flags: Dictionary = {"emitted": false}
-	var on_reset = func(): reset_flags["emitted"] = true
-	level_manager.level_reset.connect(on_reset)
-
-	restart_btn.pressed.emit()
-	await process_frame
+	level_manager.shape_piece_a.global_position = Vector2(100, 300)
 	await _sync_physics()
+	level_manager._on_shape_piece_dropped(level_manager.shape_piece_a)
 
-	assert(reset_flags["emitted"], "level_reset signal must emit on Restart button press")
-	level_manager.level_reset.disconnect(on_reset)
-	assert(level_manager.current_level_index == 11, "Must remain on Level 12 after restart")
-	assert(level_lbl.text == "Bölüm 12 / 15", "Indicator shows Bölüm 12 / 15")
-	assert(prompt_lbl.text == "Şekli tamamla", "Prompt remains 'Şekli tamamla'")
-	assert(level_manager.current_streak == 0, "Current streak reset to 0")
+	assert(level_manager.current_streak == 0, "Streak reset to 0 on invalid drop")
 	assert(level_manager.best_streak_this_run == 11, "Best streak preserved as 11")
-	assert(level_manager.shape_piece_a != null and level_manager.shape_piece_a.is_draggable, "Shape pieces restored and draggable")
+	assert(level_manager.current_level_index == 11, "Must remain on Level 12")
+
+	if level_manager.shape_piece_a.feedback_tween and level_manager.shape_piece_a.feedback_tween.is_valid():
+		await level_manager.shape_piece_a.feedback_tween.finished
+	await _sync_physics()
 
 	# Solve Level 12 correctly
 	await solve_shape.call()
@@ -181,52 +172,27 @@ func _run_tests() -> void:
 	assert(level_lbl.text == "Bölüm 13 / 15", "Indicator shows Bölüm 13 / 15")
 	assert(level_manager.current_streak == 1, "Streak 1")
 
-	# --- TEST SCENARIO D: RESTART LEVEL 13 KEEPS LEVEL 13 ACTIVE ---
-	print("\n[SCENARIO D] Restart Level 13 (Math Level) -> Level 13 remains active")
+	# --- TEST SCENARIO D: LEVEL 13 (MATH LEVEL 20 - 6 = 14) ---
+	print("\n[SCENARIO D] Level 13 (20 - 6 = 14) -> Solve correctly -> Advances to Level 14")
 	assert(prompt_lbl.text == "20 - 6 = ?", "Prompt shows '20 - 6 = ?'")
-	restart_btn.pressed.emit()
-	await process_frame
-	await _sync_physics()
-	assert(level_manager.current_level_index == 12, "Must remain on Level 13 after restart")
-	assert(level_lbl.text == "Bölüm 13 / 15", "Indicator shows Bölüm 13 / 15")
-	assert(level_manager.current_streak == 0, "Streak reset to 0 on restart")
-	assert(level_manager.best_streak_this_run == 11, "Best streak preserved as 11")
-	assert(level_manager.math_pieces.size() == 4, "4 math pieces spawned")
-
-	# Solve Level 13 (20 - 6 = 14)
 	await solve_math.call("14")
 	await level_manager.transition_tween.finished
 	await process_frame
 	await _sync_physics()
 	assert(level_manager.current_level_index == 13, "Advanced to Level 14")
 	assert(level_lbl.text == "Bölüm 14 / 15", "Indicator shows Bölüm 14 / 15")
-	assert(level_manager.current_streak == 1, "Streak 1")
+	assert(level_manager.current_streak == 2, "Streak 2")
 
-	# --- TEST SCENARIO E: RESTART LEVEL 14 DURING AUTO-TRANSITION ---
-	print("\n[SCENARIO E] Level 14 (L-Blocks) -> Restart during transition -> Cancels advance")
+	# --- TEST SCENARIO E: LEVEL 14 (L-BLOCKS) ---
+	print("\n[SCENARIO E] Level 14 (L-Blocks) -> Solve shape match -> Advances to Level 15")
 	assert(prompt_lbl.text == "Parçaları eşleştir", "Level 14 prompt shows 'Parçaları eşleştir'")
-	await solve_shape.call()
-	assert(level_manager.transition_tween != null, "Transition tween active")
-
-	# Press Restart while transition is ticking down
-	restart_btn.pressed.emit()
-	await process_frame
-	await _sync_physics()
-
-	assert(level_manager.transition_tween == null, "Transition tween cancelled on restart")
-	assert(level_manager.current_level_index == 13, "Remained on Level 14")
-	assert(level_lbl.text == "Bölüm 14 / 15", "Indicator remains Bölüm 14 / 15")
-	assert(not success_lbl.visible, "SuccessLabel hidden on restart")
-	assert(level_manager.current_streak == 0, "Streak reset to 0")
-
-	# Solve Level 14 and let it advance
 	await solve_shape.call()
 	await level_manager.transition_tween.finished
 	await process_frame
 	await _sync_physics()
 	assert(level_manager.current_level_index == 14, "Advanced to Level 15")
 	assert(level_lbl.text == "Bölüm 15 / 15", "Indicator shows Bölüm 15 / 15")
-	assert(level_manager.current_streak == 1, "Streak 1")
+	assert(level_manager.current_streak == 3, "Streak 3")
 
 	# --- TEST SCENARIO F: LEVEL 15 WRONG ANSWER DOES NOT COMPLETE RUN ---
 	print("\n[SCENARIO F] Level 15 (14 + 7 = ?) -> Wrong answer does not complete run")
@@ -273,7 +239,6 @@ func _run_tests() -> void:
 	assert(level_manager.current_streak == 0, "Current streak reset to 0")
 	assert(level_manager.best_streak_this_run == 0, "Best streak reset to 0")
 	assert(not overlay.visible, "Overlay hidden")
-	assert(restart_btn.visible, "Restart button restored")
 
-	print("\n>>> ALL 15-LEVEL & RESTART VERIFICATION TESTS PASSED PERFECTLY! <<<\n")
+	print("\n>>> ALL 15-LEVEL AUTOMATED TESTS PASSED PERFECTLY! <<<\n")
 	quit(0)
