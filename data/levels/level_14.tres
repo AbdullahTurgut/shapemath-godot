@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+puzzle_type = 1
+prompt_text = "Parçaları eşleştir"
+correct_answer = ""
+answer_choices = Array[String]([])
+choice_colors = Array[Color]([])
+match_id = "shape_lvl14"
+piece_a_color = Color(0.2, 0.82, 0.48, 1)
+piece_b_color = Color(0.92, 0.28, 0.38, 1)
+piece_a_polygon = PackedVector2Array(-60, -60, 0, -60, 0, 0, 60, 0, 60, 60, -60, 60)
+piece_b_polygon = PackedVector2Array(0, -60, 60, -60, 60, 0, 0, 0)
+shape_a_spawn_pos = Vector2(220, 900)
+shape_b_spawn_pos = Vector2(500, 900)
+shape_a_target_pos = Vector2(360, 640)
+shape_b_target_pos = Vector2(360, 640)
