@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+puzzle_type = 1
+prompt_text = "Fit the pieces together"
+correct_answer = ""
+answer_choices = Array[String]([])
+choice_colors = Array[Color]([])
+match_id = "shape_lvl4"
+piece_a_color = Color(0.65, 0.35, 0.95, 1)
+piece_b_color = Color(0.2, 0.8, 0.5, 1)
+piece_a_polygon = PackedVector2Array(-60, -60, 60, -60, -60, 60)
+piece_b_polygon = PackedVector2Array(60, -60, 60, 60, -60, 60)
+shape_a_spawn_pos = Vector2(220, 900)
+shape_b_spawn_pos = Vector2(500, 900)
+shape_a_target_pos = Vector2(360, 640)
+shape_b_target_pos = Vector2(360, 640)
