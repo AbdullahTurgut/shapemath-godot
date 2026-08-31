@@ -42,6 +42,8 @@ signal level_reset
 @export_group("Feedback")
 @export var feedback_manager: FeedbackManager
 
+# Active Run State
+var current_run_levels: Array[LevelData] = []
 var current_level_data: LevelData = null
 var is_completed: bool = false
 var is_run_completed: bool = false
@@ -85,8 +87,9 @@ func _ready() -> void:
 		next_button.pressed.connect(advance_to_next_level)
 
 	_ensure_levels_loaded()
+	generate_run_sequence()
 	_update_lives_ui(false)
-	load_level(current_level_index)
+	load_level(0)
 
 
 func _ensure_levels_loaded() -> void:
@@ -103,6 +106,130 @@ func _ensure_levels_loaded() -> void:
 				break
 
 
+func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData]:
+	_ensure_levels_loaded()
+	if levels.size() < 15:
+		push_warning("LevelManager: Master pool has fewer than 15 levels (%d found)" % levels.size())
+		current_run_levels = levels.duplicate()
+		return current_run_levels
+
+	# Group master levels into tiers based on authoring order:
+	# Tier 1 (Easy): levels 0..4 (level_01 to level_05)
+	# Tier 2 (Medium): levels 5..9 (level_06 to level_10)
+	# Tier 3 (Hard): levels 10..14 (level_11 to level_15)
+	var tier1: Array[LevelData] = []
+	var tier2: Array[LevelData] = []
+	var tier3: Array[LevelData] = []
+
+	for i in range(levels.size()):
+		if i < 5:
+			tier1.append(levels[i])
+		elif i < 10:
+			tier2.append(levels[i])
+		else:
+			tier3.append(levels[i])
+
+	var shuffled_t1: Array[LevelData] = _shuffle_tier_with_anti_clump(tier1, rng)
+	var shuffled_t2: Array[LevelData] = _shuffle_tier_with_anti_clump(tier2, rng)
+	var shuffled_t3: Array[LevelData] = _shuffle_tier_with_anti_clump(tier3, rng)
+
+	var new_sequence: Array[LevelData] = []
+	new_sequence.append_array(shuffled_t1)
+	new_sequence.append_array(shuffled_t2)
+	new_sequence.append_array(shuffled_t3)
+
+	current_run_levels = new_sequence
+	_log_run_sequence(shuffled_t1, shuffled_t2, shuffled_t3)
+	return current_run_levels
+
+
+func _shuffle_tier_with_anti_clump(tier: Array[LevelData], rng: RandomNumberGenerator = null) -> Array[LevelData]:
+	var result: Array[LevelData] = tier.duplicate()
+	var attempts: int = 0
+	var max_attempts: int = 30
+
+	while attempts < max_attempts:
+		attempts += 1
+		_shuffle_array(result, rng)
+		if not _has_clump_of_three(result):
+			return result
+
+	# Deterministic fallback interleave if random shuffle clumped 30 times
+	var math_items: Array[LevelData] = []
+	var shape_items: Array[LevelData] = []
+	for lvl in tier:
+		if lvl.puzzle_type == LevelData.PuzzleType.MATH_MATCH:
+			math_items.append(lvl)
+		else:
+			shape_items.append(lvl)
+	_shuffle_array(math_items, rng)
+	_shuffle_array(shape_items, rng)
+
+	var interleaved: Array[LevelData] = []
+	var m_idx: int = 0
+	var s_idx: int = 0
+	while m_idx < math_items.size() or s_idx < shape_items.size():
+		if m_idx < math_items.size():
+			interleaved.append(math_items[m_idx])
+			m_idx += 1
+		if s_idx < shape_items.size():
+			interleaved.append(shape_items[s_idx])
+			s_idx += 1
+	return interleaved
+
+
+func _shuffle_array(arr: Array[LevelData], rng: RandomNumberGenerator = null) -> void:
+	var n: int = arr.size()
+	for i in range(n - 1, 0, -1):
+		var j: int = 0
+		if rng:
+			j = rng.randi_range(0, i)
+		else:
+			j = randi() % (i + 1)
+		var temp: LevelData = arr[i]
+		arr[i] = arr[j]
+		arr[j] = temp
+
+
+func _has_clump_of_three(arr: Array[LevelData]) -> bool:
+	if arr.size() < 3:
+		return false
+	for i in range(arr.size() - 2):
+		if arr[i].puzzle_type == arr[i + 1].puzzle_type and arr[i + 1].puzzle_type == arr[i + 2].puzzle_type:
+			return true
+	return false
+
+
+func _get_level_number(lvl: LevelData) -> int:
+	var idx: int = levels.find(lvl)
+	if idx != -1:
+		return idx + 1
+	var path: String = lvl.resource_path
+	if "level_" in path:
+		var num_str: String = path.get_file().get_basename().replace("level_", "")
+		if num_str.is_valid_int():
+			return num_str.to_int()
+	return -1
+
+
+func _log_run_sequence(t1: Array[LevelData], t2: Array[LevelData], t3: Array[LevelData]) -> void:
+	var s1: Array[String] = []
+	for lvl in t1:
+		s1.append(str(_get_level_number(lvl)))
+	var s2: Array[String] = []
+	for lvl in t2:
+		s2.append(str(_get_level_number(lvl)))
+	var s3: Array[String] = []
+	for lvl in t3:
+		s3.append(str(_get_level_number(lvl)))
+
+	print("[RUN] New sequence: %s | %s | %s" % [
+		", ".join(s1),
+		", ".join(s2),
+		", ".join(s3)
+	])
+
+
 func _cancel_pending_transition() -> void:
 	if transition_tween and transition_tween.is_valid():
 		transition_tween.kill()
@@ -117,18 +244,21 @@ func _cancel_pending_transition() -> void:
 
 func load_level(index: int) -> void:
 	_ensure_levels_loaded()
-	if levels.is_empty():
-		push_error("LevelManager: No LevelData resources loaded!")
+	if current_run_levels.is_empty():
+		generate_run_sequence()
+
+	if current_run_levels.is_empty():
+		push_error("LevelManager: No LevelData resources in current run!")
 		return
 
-	if index < 0 or index >= levels.size():
-		push_error("LevelManager: Invalid level index %d (max: %d)" % [index, levels.size() - 1])
+	if index < 0 or index >= current_run_levels.size():
+		push_error("LevelManager: Invalid level index %d (max: %d)" % [index, current_run_levels.size() - 1])
 		return
 
 	_cancel_pending_transition()
 
 	current_level_index = index
-	current_level_data = levels[current_level_index]
+	current_level_data = current_run_levels[current_level_index]
 	is_completed = false
 	is_run_completed = false
 	is_run_failed = false
@@ -156,7 +286,7 @@ func load_level(index: int) -> void:
 		prompt_label.visible = true
 		prompt_label.text = current_level_data.prompt_text
 	if level_indicator_label:
-		level_indicator_label.text = "Bölüm %d / %d" % [current_level_index + 1, levels.size()]
+		level_indicator_label.text = "Bölüm %d / %d" % [current_level_index + 1, current_run_levels.size()]
 
 	# Update streak & lives display
 	_update_streak_ui(false)
@@ -172,10 +302,12 @@ func load_level(index: int) -> void:
 		LevelData.PuzzleType.SHAPE_MATCH:
 			_setup_shape_level()
 
-	print("LOADED LEVEL %d: %s (%s) [Lives: %d, Streak: %d, Best: %d]" % [
+	print("LOADED RUN LEVEL %d / %d: %s (%s) [Original: Level %d, Lives: %d, Streak: %d, Best: %d]" % [
 		current_level_index + 1,
+		current_run_levels.size(),
 		current_level_data.prompt_text,
 		"MATH_MATCH" if current_level_data.puzzle_type == LevelData.PuzzleType.MATH_MATCH else "SHAPE_MATCH",
+		_get_level_number(current_level_data),
 		current_lives,
 		current_streak,
 		best_streak_this_run
@@ -398,7 +530,7 @@ func _show_run_failure_overlay() -> void:
 
 	print("SHOWING RUN FAILURE OVERLAY - Level Reached: %d / %d, Best Streak: %d" % [
 		current_level_index + 1,
-		levels.size(),
+		current_run_levels.size(),
 		best_streak_this_run
 	])
 
@@ -414,7 +546,7 @@ func _show_run_failure_overlay() -> void:
 		shape_container.visible = false
 
 	if failure_progress_label:
-		failure_progress_label.text = "%d / %d Bölüme Ulaştın" % [current_level_index + 1, levels.size()]
+		failure_progress_label.text = "%d / %d Bölüme Ulaştın" % [current_level_index + 1, current_run_levels.size()]
 	if failure_best_streak_label:
 		failure_best_streak_label.text = "En İyi Seri: x%d" % best_streak_this_run
 
@@ -440,7 +572,7 @@ func _process_math_success(correct_piece: DraggablePiece) -> void:
 
 
 func _on_completion() -> void:
-	print("LEVEL COMPLETED: Level %d / %d" % [current_level_index + 1, levels.size()])
+	print("LEVEL COMPLETED: Level %d / %d" % [current_level_index + 1, current_run_levels.size()])
 
 	# Trigger level completion feedback (SFX + haptic)
 	if feedback_manager:
@@ -453,7 +585,7 @@ func _on_completion() -> void:
 
 	if success_label:
 		success_label.visible = true
-		if current_level_index == levels.size() - 1:
+		if current_level_index == current_run_levels.size() - 1:
 			success_label.text = "Harika! Tur Tamamlandı!"
 		else:
 			success_label.text = "Harika!"
@@ -475,7 +607,7 @@ func _on_completion() -> void:
 		next_button.visible = false
 
 	# Schedule automatic transition for Levels 1 to 14, or summary overlay for Level 15
-	if current_level_index < levels.size() - 1:
+	if current_level_index < current_run_levels.size() - 1:
 		_cancel_pending_transition()
 		transition_tween = create_tween()
 		transition_tween.tween_interval(transition_delay)
@@ -492,7 +624,7 @@ func _on_completion() -> void:
 
 func _on_transition_delay_finished() -> void:
 	transition_tween = null
-	if current_level_index + 1 < levels.size():
+	if current_level_index + 1 < current_run_levels.size():
 		advance_to_next_level()
 
 
@@ -552,6 +684,7 @@ func start_new_run() -> void:
 		prompt_label.visible = true
 
 	_update_lives_ui(false)
+	generate_run_sequence()
 	load_level(0)
 
 
@@ -624,10 +757,10 @@ func _update_streak_ui(animate: bool = false) -> void:
 
 
 func advance_to_next_level() -> void:
-	if current_level_index + 1 < levels.size():
+	if current_level_index + 1 < current_run_levels.size():
 		load_level(current_level_index + 1)
 	else:
-		print("Already at final level (Level %d / %d)" % [current_level_index + 1, levels.size()])
+		print("Already at final level (Level %d / %d)" % [current_level_index + 1, current_run_levels.size()])
 
 
 func reset_level() -> void:
