@@ -9,6 +9,8 @@ signal level_reset
 @export var current_level_index: int = 0
 @export var transition_delay: float = 0.85
 @export var summary_delay: float = 1.0
+@export var failure_delay: float = 0.55
+@export var max_lives: int = 3
 
 # Containers & Shared Nodes
 @export_group("Scene References")
@@ -18,6 +20,7 @@ signal level_reset
 @export var prompt_label: Label
 @export var success_label: Label
 @export var level_indicator_label: Label
+@export var lives_label: Label
 @export var streak_label: Label
 @export var next_button: Button
 
@@ -28,6 +31,13 @@ signal level_reset
 @export var summary_best_streak_label: Label
 @export var play_again_button: Button
 
+# Run Failure UI References
+@export_group("Run Failure UI")
+@export var run_failure_overlay: Control
+@export var failure_progress_label: Label
+@export var failure_best_streak_label: Label
+@export var try_again_button: Button
+
 # Feedback System
 @export_group("Feedback")
 @export var feedback_manager: FeedbackManager
@@ -35,14 +45,18 @@ signal level_reset
 var current_level_data: LevelData = null
 var is_completed: bool = false
 var is_run_completed: bool = false
+var is_run_failed: bool = false
+var current_lives: int = 3
 var current_streak: int = 0
 var best_streak_this_run: int = 0
 
 var active_tween: Tween = null
 var label_tween: Tween = null
 var streak_tween: Tween = null
+var lives_tween: Tween = null
 var transition_tween: Tween = null
 var summary_tween: Tween = null
+var failure_tween: Tween = null
 
 # Active runtime piece references
 var math_pieces: Array[DraggablePiece] = []
@@ -52,16 +66,26 @@ var shape_piece_b: DraggablePiece = null
 
 
 func _ready() -> void:
+	current_lives = max_lives
 	current_streak = 0
 	best_streak_this_run = 0
 	is_run_completed = false
+	is_run_failed = false
+
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
+	if run_failure_overlay:
+		run_failure_overlay.visible = false
+
 	if play_again_button and not play_again_button.pressed.is_connected(start_new_run):
 		play_again_button.pressed.connect(start_new_run)
+	if try_again_button and not try_again_button.pressed.is_connected(start_new_run):
+		try_again_button.pressed.connect(start_new_run)
 	if next_button and not next_button.pressed.is_connected(advance_to_next_level):
 		next_button.pressed.connect(advance_to_next_level)
+
 	_ensure_levels_loaded()
+	_update_lives_ui(false)
 	load_level(current_level_index)
 
 
@@ -86,6 +110,9 @@ func _cancel_pending_transition() -> void:
 	if summary_tween and summary_tween.is_valid():
 		summary_tween.kill()
 		summary_tween = null
+	if failure_tween and failure_tween.is_valid():
+		failure_tween.kill()
+		failure_tween = null
 
 
 func load_level(index: int) -> void:
@@ -104,6 +131,7 @@ func load_level(index: int) -> void:
 	current_level_data = levels[current_level_index]
 	is_completed = false
 	is_run_completed = false
+	is_run_failed = false
 
 	if active_tween and active_tween.is_valid():
 		active_tween.kill()
@@ -115,6 +143,8 @@ func load_level(index: int) -> void:
 	# Reset UI
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
+	if run_failure_overlay:
+		run_failure_overlay.visible = false
 	if success_label:
 		success_label.visible = false
 		success_label.scale = Vector2.ONE
@@ -128,8 +158,9 @@ func load_level(index: int) -> void:
 	if level_indicator_label:
 		level_indicator_label.text = "Bölüm %d / %d" % [current_level_index + 1, levels.size()]
 
-	# Update streak display without animation on level load
+	# Update streak & lives display
 	_update_streak_ui(false)
+	_update_lives_ui(false)
 
 	# Clear previous pieces
 	_cleanup_current_pieces()
@@ -141,10 +172,11 @@ func load_level(index: int) -> void:
 		LevelData.PuzzleType.SHAPE_MATCH:
 			_setup_shape_level()
 
-	print("LOADED LEVEL %d: %s (%s) [Streak: %d, Best: %d]" % [
+	print("LOADED LEVEL %d: %s (%s) [Lives: %d, Streak: %d, Best: %d]" % [
 		current_level_index + 1,
 		current_level_data.prompt_text,
 		"MATH_MATCH" if current_level_data.puzzle_type == LevelData.PuzzleType.MATH_MATCH else "SHAPE_MATCH",
+		current_lives,
 		current_streak,
 		best_streak_this_run
 	])
@@ -253,26 +285,26 @@ func _setup_shape_level() -> void:
 
 
 func _on_shape_piece_dropped(piece: DraggablePiece) -> void:
-	if is_completed:
+	if is_completed or is_run_failed:
 		return
 
 	var overlapping_areas: Array[Area2D] = piece.get_overlapping_areas()
-	var matched_piece: DraggablePiece = null
+	var overlapped_shape_piece: DraggablePiece = null
 
 	for area in overlapping_areas:
 		if area is DraggablePiece and area != piece:
-			if not piece.match_id.is_empty() and piece.match_id == area.match_id:
-				matched_piece = area
-				break
+			overlapped_shape_piece = area
+			break
 
-	if matched_piece != null:
-		_process_shape_success(piece, matched_piece)
+	if overlapped_shape_piece != null:
+		if not piece.match_id.is_empty() and piece.match_id == overlapped_shape_piece.match_id:
+			_process_shape_success(piece, overlapped_shape_piece)
+		else:
+			print("DELIBERATE WRONG ATTEMPT: Mismatched shape drop for %s" % piece.name)
+			_handle_deliberate_failure(piece)
 	else:
-		print("MATCH FAILED: No valid match found for %s" % piece.name)
-		if feedback_manager:
-			feedback_manager.play_wrong()
-		_reset_streak()
-		piece.return_to_origin()
+		print("CANCELLED DROP: Shape %s released in empty space (no penalty)" % piece.name)
+		piece.return_neutral()
 
 
 func _process_shape_success(_piece1: DraggablePiece, _piece2: DraggablePiece) -> void:
@@ -299,7 +331,7 @@ func _process_shape_success(_piece1: DraggablePiece, _piece2: DraggablePiece) ->
 
 
 func _on_math_piece_dropped(piece: DraggablePiece) -> void:
-	if is_completed:
+	if is_completed or is_run_failed:
 		return
 
 	var overlapping_areas: Array[Area2D] = piece.get_overlapping_areas()
@@ -310,17 +342,88 @@ func _on_math_piece_dropped(piece: DraggablePiece) -> void:
 			dropped_on_target = true
 			break
 
-	if dropped_on_target and piece.piece_text == current_level_data.correct_answer:
-		_process_math_success(piece)
-	else:
-		if dropped_on_target:
-			print("MATCH FAILED: '%s' is incorrect (expected '%s')" % [piece.piece_text, current_level_data.correct_answer])
+	if dropped_on_target:
+		if piece.piece_text == current_level_data.correct_answer:
+			_process_math_success(piece)
 		else:
-			print("MATCH FAILED: Not dropped on target zone")
-		if feedback_manager:
-			feedback_manager.play_wrong()
-		_reset_streak()
-		piece.return_to_origin()
+			print("DELIBERATE WRONG ATTEMPT: '%s' is incorrect (expected '%s')" % [piece.piece_text, current_level_data.correct_answer])
+			_handle_deliberate_failure(piece)
+	else:
+		print("CANCELLED DROP: Piece '%s' released in empty space (no penalty)" % piece.piece_text)
+		piece.return_neutral()
+
+
+func _handle_deliberate_failure(piece: DraggablePiece) -> void:
+	if feedback_manager:
+		feedback_manager.play_wrong()
+	_reset_streak()
+	piece.play_invalid_feedback()
+	_lose_life()
+
+
+func _lose_life() -> void:
+	if is_run_failed or is_completed:
+		return
+
+	current_lives = max(0, current_lives - 1)
+	_update_lives_ui(true)
+	print("LIFE LOST: %d / %d lives remaining" % [current_lives, max_lives])
+
+	if current_lives <= 0:
+		_trigger_run_failure()
+
+
+func _trigger_run_failure() -> void:
+	is_run_failed = true
+	_cancel_pending_transition()
+
+	# Disable all runtime draggable pieces
+	for p in math_pieces:
+		if is_instance_valid(p):
+			p.disable_drag()
+	for p in shape_pieces:
+		if is_instance_valid(p):
+			p.disable_drag()
+
+	# Schedule failure overlay appearance after wrong-feedback shake completes
+	failure_tween = create_tween()
+	failure_tween.tween_interval(failure_delay)
+	failure_tween.finished.connect(_show_run_failure_overlay)
+
+
+func _show_run_failure_overlay() -> void:
+	failure_tween = null
+	if not is_run_failed:
+		return
+
+	print("SHOWING RUN FAILURE OVERLAY - Level Reached: %d / %d, Best Streak: %d" % [
+		current_level_index + 1,
+		levels.size(),
+		best_streak_this_run
+	])
+
+	if prompt_label:
+		prompt_label.visible = false
+	if success_label:
+		success_label.visible = false
+	if streak_label:
+		streak_label.visible = false
+	if math_container:
+		math_container.visible = false
+	if shape_container:
+		shape_container.visible = false
+
+	if failure_progress_label:
+		failure_progress_label.text = "%d / %d Bölüme Ulaştın" % [current_level_index + 1, levels.size()]
+	if failure_best_streak_label:
+		failure_best_streak_label.text = "En İyi Seri: x%d" % best_streak_this_run
+
+	if run_failure_overlay:
+		run_failure_overlay.visible = true
+		run_failure_overlay.modulate.a = 0.0
+
+		var overlay_tween: Tween = create_tween()
+		overlay_tween.tween_property(run_failure_overlay, "modulate:a", 1.0, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func _process_math_success(correct_piece: DraggablePiece) -> void:
@@ -429,20 +532,26 @@ func _show_run_complete_overlay() -> void:
 
 
 func start_new_run() -> void:
-	print("STARTING NEW RUN (Play Again)")
+	print("STARTING NEW RUN (Play Again / Retry)")
 	_cancel_pending_transition()
 
 	is_run_completed = false
+	is_run_failed = false
+	current_lives = max_lives
 	current_streak = 0
 	best_streak_this_run = 0
 
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 		run_complete_overlay.modulate.a = 1.0
+	if run_failure_overlay:
+		run_failure_overlay.visible = false
+		run_failure_overlay.modulate.a = 1.0
 
 	if prompt_label:
 		prompt_label.visible = true
 
+	_update_lives_ui(false)
 	load_level(0)
 
 
@@ -451,6 +560,35 @@ func _reset_streak() -> void:
 		print("STREAK RESET to 0 (Best streak preserved: %d)" % best_streak_this_run)
 		current_streak = 0
 		_update_streak_ui(false)
+
+
+func _update_lives_ui(animate: bool = false) -> void:
+	if not lives_label:
+		return
+
+	var heart_str: String = ""
+	for i in range(max_lives):
+		if i < current_lives:
+			heart_str += "♥ "
+		else:
+			heart_str += "♡ "
+	lives_label.text = heart_str.strip_edges()
+
+	if lives_tween and lives_tween.is_valid():
+		lives_tween.kill()
+		lives_tween = null
+
+	if animate:
+		lives_label.pivot_offset = lives_label.size / 2.0
+		lives_label.scale = Vector2(1.25, 1.25)
+		lives_label.modulate = Color(1.3, 0.4, 0.4, 1.0)
+
+		lives_tween = create_tween()
+		lives_tween.tween_property(lives_label, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		lives_tween.parallel().tween_property(lives_label, "modulate", Color.WHITE, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	else:
+		lives_label.scale = Vector2.ONE
+		lives_label.modulate = Color.WHITE
 
 
 func _update_streak_ui(animate: bool = false) -> void:
@@ -496,10 +634,13 @@ func reset_level() -> void:
 	print("RESETTING CURRENT LEVEL: %d (Resetting streak)" % [current_level_index + 1])
 	_cancel_pending_transition()
 	is_run_completed = false
+	is_run_failed = false
 	current_streak = 0
 
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
+	if run_failure_overlay:
+		run_failure_overlay.visible = false
 	if prompt_label:
 		prompt_label.visible = true
 

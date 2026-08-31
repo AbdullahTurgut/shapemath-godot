@@ -265,5 +265,25 @@ func reset_piece() -> void:
 		_original_position_captured = true
 
 
+func return_neutral(duration: float = 0.20) -> Tween:
+	_kill_active_tweens()
+	is_draggable = false
+	input_pickable = false
+	is_dragging = false
+	active_touch_index = -1
+	current_lift = 0.0
+	z_index = 2
+
+	if not _original_position_captured:
+		original_position = global_position
+		_original_position_captured = true
+
+	feedback_tween = create_tween()
+	feedback_tween.tween_property(self, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	feedback_tween.parallel().tween_property(self, "global_position", original_position, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	feedback_tween.finished.connect(_on_invalid_feedback_finished)
+	return feedback_tween
+
+
 func return_to_origin() -> void:
 	play_invalid_feedback()
