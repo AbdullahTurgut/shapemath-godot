@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/core/level_manager.gd" id="2_level_manager"]
 [ext_resource type="PackedScene" path="res://scenes/pieces/draggable_piece.tscn" id="3_piece"]
+[ext_resource type="Script" path="res://scripts/core/feedback_manager.gd" id="4_feedback_manager"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_target"]
 size = Vector2(140, 140)
@@ -199,7 +200,10 @@ offset_bottom = 430.0
 theme_override_font_sizes/font_size = 30
 text = "Tekrar Oyna"
 
-[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "success_label", "level_indicator_label", "streak_label", "next_button", "restart_button", "run_complete_overlay", "summary_final_streak_label", "summary_best_streak_label", "play_again_button")]
+[node name="FeedbackManager" type="Node" parent="."]
+script = ExtResource("4_feedback_manager")
+
+[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "success_label", "level_indicator_label", "streak_label", "next_button", "restart_button", "run_complete_overlay", "summary_final_streak_label", "summary_best_streak_label", "play_again_button", "feedback_manager")]
 script = ExtResource("2_level_manager")
 piece_scene = ExtResource("3_piece")
 shape_container = NodePath("../ShapeContainer")
@@ -215,3 +219,4 @@ run_complete_overlay = NodePath("../RunCompleteOverlay")
 summary_final_streak_label = NodePath("../RunCompleteOverlay/Card/FinalStreakLabel")
 summary_best_streak_label = NodePath("../RunCompleteOverlay/Card/BestStreakLabel")
 play_again_button = NodePath("../RunCompleteOverlay/Card/PlayAgainButton")
+feedback_manager = NodePath("../FeedbackManager")

@@ -29,6 +29,10 @@ signal level_reset
 @export var summary_best_streak_label: Label
 @export var play_again_button: Button
 
+# Feedback System
+@export_group("Feedback")
+@export var feedback_manager: FeedbackManager
+
 var current_level_data: LevelData = null
 var is_completed: bool = false
 var is_run_completed: bool = false
@@ -260,6 +264,8 @@ func _on_shape_piece_dropped(piece: DraggablePiece) -> void:
 		_process_shape_success(piece, matched_piece)
 	else:
 		print("MATCH FAILED: No valid match found for %s" % piece.name)
+		if feedback_manager:
+			feedback_manager.play_wrong()
 		_reset_streak()
 		piece.return_to_origin()
 
@@ -306,6 +312,8 @@ func _on_math_piece_dropped(piece: DraggablePiece) -> void:
 			print("MATCH FAILED: '%s' is incorrect (expected '%s')" % [piece.piece_text, current_level_data.correct_answer])
 		else:
 			print("MATCH FAILED: Not dropped on target zone")
+		if feedback_manager:
+			feedback_manager.play_wrong()
 		_reset_streak()
 		piece.return_to_origin()
 
@@ -325,6 +333,10 @@ func _process_math_success(correct_piece: DraggablePiece) -> void:
 
 func _on_completion() -> void:
 	print("LEVEL COMPLETED: Level %d / %d" % [current_level_index + 1, levels.size()])
+
+	# Trigger level completion feedback (SFX + haptic)
+	if feedback_manager:
+		feedback_manager.play_level_complete()
 
 	# Increment streak and update best streak
 	current_streak += 1
@@ -382,6 +394,10 @@ func _show_run_complete_overlay() -> void:
 		return
 
 	print("SHOWING RUN COMPLETE OVERLAY - Final Streak: %d, Best Streak: %d" % [current_streak, best_streak_this_run])
+
+	# Trigger run completion fanfare (SFX + haptic)
+	if feedback_manager:
+		feedback_manager.play_run_complete()
 
 	if restart_button:
 		restart_button.visible = false

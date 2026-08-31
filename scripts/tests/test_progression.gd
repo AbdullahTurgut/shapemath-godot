@@ -36,6 +36,7 @@ func _run_tests() -> void:
 	var play_again_btn: Button = overlay.get_node("Card/PlayAgainButton") as Button
 
 	assert(level_manager != null, "LevelManager must exist")
+	assert(level_manager.feedback_manager != null, "FeedbackManager must be attached to LevelManager")
 	assert(overlay != null, "RunCompleteOverlay must exist")
 	assert(not overlay.visible, "Overlay must be hidden initially")
 	assert(level_manager.current_streak == 0 and level_manager.best_streak_this_run == 0, "Initial streaks must be 0")
