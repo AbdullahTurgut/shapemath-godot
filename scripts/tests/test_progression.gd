@@ -110,8 +110,8 @@ func _run_tests() -> void:
 	await process_frame
 
 	assert(overlay.visible, "RunCompleteOverlay must be visible after Level 5")
-	assert(final_streak_lbl.text == "Final Streak: x5", "Final Streak must display 'Final Streak: x5'")
-	assert(best_streak_lbl.text == "Best Streak: x5", "Best Streak must display 'Best Streak: x5'")
+	assert(final_streak_lbl.text == "Son Seri: x5", "Final Streak must display 'Son Seri: x5'")
+	assert(best_streak_lbl.text == "En İyi Seri: x5", "Best Streak must display 'En İyi Seri: x5'")
 	assert(not restart_btn.visible, "Normal restart button must be hidden when overlay is active")
 	assert(not prompt_lbl.visible, "Gameplay prompt must be hidden")
 
@@ -122,7 +122,7 @@ func _run_tests() -> void:
 	await _sync_physics()
 
 	assert(level_manager.current_level_index == 0, "Must be back at Level 1")
-	assert(level_lbl.text == "Level 1 / 5", "Indicator must show Level 1 / 5")
+	assert(level_lbl.text == "Bölüm 1 / 5", "Indicator must show Bölüm 1 / 5")
 	assert(level_manager.current_streak == 0, "Current streak must reset to 0")
 	assert(level_manager.best_streak_this_run == 0, "Best streak must reset to 0 for new run")
 	assert(not overlay.visible, "Overlay must be hidden")
@@ -230,8 +230,8 @@ func _run_tests() -> void:
 	await process_frame
 
 	assert(overlay.visible, "Overlay appears on completion")
-	assert(final_streak_lbl.text == "Final Streak: x1", "Final Streak must be x1")
-	assert(best_streak_lbl.text == "Best Streak: x3", "Best Streak must be x3")
+	assert(final_streak_lbl.text == "Son Seri: x1", "Final Streak must be x1")
+	assert(best_streak_lbl.text == "En İyi Seri: x3", "Best Streak must be x3")
 
 	print("\n>>> ALL STEP 9E AUTOMATED TESTS PASSED PERFECTLY! <<<\n")
 	quit(0)

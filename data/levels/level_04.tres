@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_data")
 puzzle_type = 1
-prompt_text = "Fit the pieces together"
+prompt_text = "Parçaları birleştir"
 correct_answer = ""
 answer_choices = Array[String]([])
 choice_colors = Array[Color]([])

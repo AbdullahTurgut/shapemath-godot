@@ -22,34 +22,34 @@ color = Color(0.117647, 0.133333, 0.176471, 1)
 [node name="LevelIndicatorLabel" type="Label" parent="."]
 offset_left = 40.0
 offset_top = 40.0
-offset_right = 240.0
+offset_right = 230.0
 offset_bottom = 100.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.85, 0.88, 0.95, 1)
 theme_override_font_sizes/font_size = 28
-text = "Level 1 / 5"
+text = "Bölüm 1 / 5"
 vertical_alignment = 1
 
 [node name="StreakLabel" type="Label" parent="."]
 visible = false
-offset_left = 240.0
+offset_left = 230.0
 offset_top = 40.0
-offset_right = 480.0
+offset_right = 470.0
 offset_bottom = 100.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.784314, 0.27451, 1)
 theme_override_font_sizes/font_size = 28
-text = "Streak x1"
+text = "Seri x1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="RestartButton" type="Button" parent="."]
-offset_left = 530.0
+offset_left = 480.0
 offset_top = 40.0
 offset_right = 680.0
 offset_bottom = 100.0
-theme_override_font_sizes/font_size = 24
-text = "Restart"
+theme_override_font_sizes/font_size = 22
+text = "Yeniden Başlat"
 
 [node name="TitleLabel" type="Label" parent="."]
 offset_top = 110.0
@@ -58,7 +58,7 @@ offset_bottom = 160.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.55, 0.6, 0.72, 1)
 theme_override_font_sizes/font_size = 26
-text = "ShapeMath"
+text = "ShapeMath Prototip"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -81,7 +81,7 @@ offset_bottom = 390.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.305882, 0.878431, 0.419608, 1)
 theme_override_font_sizes/font_size = 44
-text = "Perfect!"
+text = "Harika!"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -92,7 +92,7 @@ offset_top = 410.0
 offset_right = 480.0
 offset_bottom = 475.0
 theme_override_font_sizes/font_size = 26
-text = "Next Level >"
+text = "Sonraki Bölüm >"
 
 [node name="ShapeContainer" type="Node2D" parent="."]
 visible = false
@@ -167,7 +167,7 @@ offset_right = 540.0
 offset_bottom = 110.0
 theme_override_colors/font_color = Color(0.305882, 0.878431, 0.419608, 1)
 theme_override_font_sizes/font_size = 42
-text = "Run Complete!"
+text = "Tur Tamamlandı!"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -177,7 +177,7 @@ offset_right = 540.0
 offset_bottom = 210.0
 theme_override_colors/font_color = Color(1, 0.784314, 0.27451, 1)
 theme_override_font_sizes/font_size = 32
-text = "Final Streak: x5"
+text = "Son Seri: x5"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -187,7 +187,7 @@ offset_right = 540.0
 offset_bottom = 280.0
 theme_override_colors/font_color = Color(0.65, 0.75, 0.9, 1)
 theme_override_font_sizes/font_size = 28
-text = "Best Streak: x5"
+text = "En İyi Seri: x5"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -197,7 +197,7 @@ offset_top = 340.0
 offset_right = 420.0
 offset_bottom = 430.0
 theme_override_font_sizes/font_size = 30
-text = "Play Again"
+text = "Tekrar Oyna"
 
 [node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "success_label", "level_indicator_label", "streak_label", "next_button", "restart_button", "run_complete_overlay", "summary_final_streak_label", "summary_best_streak_label", "play_again_button")]
 script = ExtResource("2_level_manager")

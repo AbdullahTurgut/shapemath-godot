@@ -110,14 +110,14 @@ func load_level(index: int) -> void:
 		success_label.visible = false
 		success_label.scale = Vector2.ONE
 		success_label.modulate = Color.WHITE
-		success_label.text = "Perfect!"
+		success_label.text = "Harika!"
 	if next_button:
 		next_button.visible = false
 	if prompt_label:
 		prompt_label.visible = true
 		prompt_label.text = current_level_data.prompt_text
 	if level_indicator_label:
-		level_indicator_label.text = "Level %d / %d" % [current_level_index + 1, levels.size()]
+		level_indicator_label.text = "Bölüm %d / %d" % [current_level_index + 1, levels.size()]
 
 	# Update streak display without animation on level load
 	_update_streak_ui(false)
@@ -334,9 +334,9 @@ func _on_completion() -> void:
 	if success_label:
 		success_label.visible = true
 		if current_level_index == levels.size() - 1:
-			success_label.text = "Perfect! Run Complete!"
+			success_label.text = "Harika! Tur Tamamlandı!"
 		else:
-			success_label.text = "Perfect!"
+			success_label.text = "Harika!"
 
 		# Animate "Perfect!" entrance
 		if label_tween and label_tween.is_valid():
@@ -397,9 +397,9 @@ func _show_run_complete_overlay() -> void:
 		shape_container.visible = false
 
 	if summary_final_streak_label:
-		summary_final_streak_label.text = "Final Streak: x%d" % current_streak
+		summary_final_streak_label.text = "Son Seri: x%d" % current_streak
 	if summary_best_streak_label:
-		summary_best_streak_label.text = "Best Streak: x%d" % best_streak_this_run
+		summary_best_streak_label.text = "En İyi Seri: x%d" % best_streak_this_run
 
 	if run_complete_overlay:
 		run_complete_overlay.visible = true
@@ -451,7 +451,7 @@ func _update_streak_ui(animate: bool = false) -> void:
 		streak_label.modulate = Color.WHITE
 		return
 
-	streak_label.text = "Streak x%d" % current_streak
+	streak_label.text = "Seri x%d" % current_streak
 	streak_label.visible = true
 
 	if animate:
