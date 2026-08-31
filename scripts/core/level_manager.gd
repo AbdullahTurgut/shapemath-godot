@@ -58,6 +58,12 @@ func _ready() -> void:
 	is_run_completed = false
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
+	if restart_button and not restart_button.pressed.is_connected(reset_level):
+		restart_button.pressed.connect(reset_level)
+	if play_again_button and not play_again_button.pressed.is_connected(start_new_run):
+		play_again_button.pressed.connect(start_new_run)
+	if next_button and not next_button.pressed.is_connected(advance_to_next_level):
+		next_button.pressed.connect(advance_to_next_level)
 	_ensure_levels_loaded()
 	load_level(current_level_index)
 
