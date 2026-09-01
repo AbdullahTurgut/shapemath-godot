@@ -31,6 +31,7 @@ signal level_reset
 # Run Summary UI References
 @export_group("Run Summary UI")
 @export var run_complete_overlay: Control
+@export var summary_title_label: Label
 @export var summary_final_streak_label: Label
 @export var summary_best_streak_label: Label
 @export var summary_session_streak_label: Label
@@ -67,6 +68,7 @@ var best_streak_session: int = 0
 var personal_best_streak: int = 0
 var personal_best_at_run_start: int = 0
 var record_broken_this_run: bool = false
+var mistakes_this_run: int = 0
 
 var active_tween: Tween = null
 var label_tween: Tween = null
@@ -90,6 +92,7 @@ func _ready() -> void:
 		personal_best_streak = save_manager.get_personal_best_streak()
 	personal_best_at_run_start = personal_best_streak
 	record_broken_this_run = false
+	mistakes_this_run = 0
 
 	current_lives = max_lives
 	current_streak = 0
@@ -719,6 +722,7 @@ func _on_math_piece_dropped(piece: DraggablePiece) -> void:
 
 
 func _handle_deliberate_failure(piece: DraggablePiece) -> void:
+	mistakes_this_run += 1
 	if feedback_manager:
 		feedback_manager.play_wrong()
 	_reset_streak()
@@ -868,38 +872,53 @@ func _on_completion() -> void:
 		if save_manager:
 			save_manager.update_personal_best_streak(personal_best_streak)
 
-	# Check if this solve is the first record break of this run (threshold: personal_best_at_run_start >= 2)
-	var triggers_celebration: bool = (personal_best_at_run_start >= 2 and current_streak > personal_best_at_run_start and not record_broken_this_run)
-	if triggers_celebration:
+	# Check Priority 1: Personal Record Celebration (threshold: personal_best_at_run_start >= 2)
+	var triggers_record_celebration: bool = (personal_best_at_run_start >= 2 and current_streak > personal_best_at_run_start and not record_broken_this_run)
+	if triggers_record_celebration:
 		record_broken_this_run = true
 		_show_record_celebration(current_streak)
 		if feedback_manager:
 			feedback_manager.play_record_break()
 	else:
+		# Priority 2 & 3: Streak Milestones and Standard Success
 		if feedback_manager:
 			feedback_manager.play_level_complete()
 
+		if success_label:
+			success_label.visible = true
+			var punch_scale: float = 1.15
+
+			# Check Priority 2: Streak Milestones (x5 and x10)
+			if current_streak == 5:
+				success_label.text = "Harika Seri!"
+				punch_scale = 1.22
+			elif current_streak == 10:
+				success_label.text = "Müthiş Seri!"
+				punch_scale = 1.28
+			else:
+				# Priority 3: Standard Success
+				if current_level_index == current_run_levels.size() - 1:
+					if mistakes_this_run == 0:
+						success_label.text = "Harika! Mükemmel Tur!"
+					else:
+						success_label.text = "Harika! Tur Tamamlandı!"
+				else:
+					success_label.text = "Harika!"
+
+			# Animate success entrance
+			if label_tween and label_tween.is_valid():
+				label_tween.kill()
+
+			success_label.pivot_offset = success_label.size / 2.0
+			success_label.scale = Vector2(0.6, 0.6)
+			success_label.modulate.a = 0.0
+
+			label_tween = create_tween()
+			label_tween.tween_property(success_label, "modulate:a", 1.0, 0.15)
+			label_tween.parallel().tween_property(success_label, "scale", Vector2.ONE * punch_scale, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			label_tween.chain().tween_property(success_label, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
 	_update_streak_ui(true)
-
-	if not triggers_celebration and success_label:
-		success_label.visible = true
-		if current_level_index == current_run_levels.size() - 1:
-			success_label.text = "Harika! Tur Tamamlandı!"
-		else:
-			success_label.text = "Harika!"
-
-		# Animate "Perfect!" entrance
-		if label_tween and label_tween.is_valid():
-			label_tween.kill()
-
-		success_label.pivot_offset = success_label.size / 2.0
-		success_label.scale = Vector2(0.6, 0.6)
-		success_label.modulate.a = 0.0
-
-		label_tween = create_tween()
-		label_tween.tween_property(success_label, "modulate:a", 1.0, 0.15)
-		label_tween.parallel().tween_property(success_label, "scale", Vector2.ONE * 1.15, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		label_tween.chain().tween_property(success_label, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 	if next_button:
 		next_button.visible = false
@@ -972,13 +991,17 @@ func _show_run_complete_overlay() -> void:
 	if not is_run_completed:
 		return
 
-	print("SHOWING RUN COMPLETE OVERLAY - Final Streak: %d, Run Best Streak: %d, Personal Best Streak: %d" % [
-		current_streak, best_streak_this_run, personal_best_streak
+	var is_perfect: bool = (mistakes_this_run == 0)
+	print("SHOWING RUN COMPLETE OVERLAY - Perfect: %s (Mistakes: %d), Final Streak: %d, Run Best Streak: %d, Personal Best Streak: %d" % [
+		str(is_perfect), mistakes_this_run, current_streak, best_streak_this_run, personal_best_streak
 	])
 
 	# Trigger run completion fanfare (SFX + haptic)
 	if feedback_manager:
-		feedback_manager.play_run_complete()
+		if is_perfect:
+			feedback_manager.play_perfect_run()
+		else:
+			feedback_manager.play_run_complete()
 
 	if record_banner:
 		record_banner.visible = false
@@ -992,6 +1015,14 @@ func _show_run_complete_overlay() -> void:
 		math_container.visible = false
 	if shape_container:
 		shape_container.visible = false
+
+	if summary_title_label:
+		if is_perfect:
+			summary_title_label.text = "Mükemmel Tur!\nKusursuz 15 / 15!"
+			summary_title_label.modulate = Color(1.0, 0.84, 0.31, 1.0)
+		else:
+			summary_title_label.text = "Tur Tamamlandı!"
+			summary_title_label.modulate = Color(0.305882, 0.878431, 0.419608, 1.0)
 
 	if summary_final_streak_label:
 		summary_final_streak_label.text = "Son Seri: x%d" % current_streak
@@ -1017,6 +1048,7 @@ func start_new_run() -> void:
 		personal_best_streak = save_manager.get_personal_best_streak()
 	personal_best_at_run_start = personal_best_streak
 	record_broken_this_run = false
+	mistakes_this_run = 0
 
 	is_run_completed = false
 	is_run_failed = false
@@ -1167,6 +1199,7 @@ func cleanup_run() -> void:
 	is_completed = false
 	is_run_completed = false
 	is_run_failed = false
+	mistakes_this_run = 0
 
 	if save_manager:
 		personal_best_streak = save_manager.get_personal_best_streak()

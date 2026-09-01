@@ -88,3 +88,9 @@ func play_record_break() -> void:
 func play_run_complete() -> void:
 	_play_sfx(SFX_RUN_COMPLETE, 1.0)
 	_vibrate(85)
+
+
+func play_perfect_run() -> void:
+	_play_sfx(SFX_RUN_COMPLETE, 1.5)
+	_vibrate(100)
+

@@ -546,7 +546,7 @@ script = ExtResource("5_save_manager")
 [node name="FeedbackManager" type="Node" parent="."]
 script = ExtResource("4_feedback_manager")
 
-[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "onboarding_hint_label", "success_label", "record_banner", "record_title_label", "record_value_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "try_again_button", "feedback_manager", "save_manager")]
+[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "onboarding_hint_label", "success_label", "record_banner", "record_title_label", "record_value_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_title_label", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "try_again_button", "feedback_manager", "save_manager")]
 script = ExtResource("2_level_manager")
 piece_scene = ExtResource("3_piece")
 shape_container = NodePath("../ShapeContainer")
@@ -563,6 +563,7 @@ lives_label = NodePath("../LivesLabel")
 streak_label = NodePath("../StreakLabel")
 next_button = NodePath("../NextButton")
 run_complete_overlay = NodePath("../RunCompleteOverlay")
+summary_title_label = NodePath("../RunCompleteOverlay/Card/CardTitle")
 summary_final_streak_label = NodePath("../RunCompleteOverlay/Card/FinalStreakLabel")
 summary_best_streak_label = NodePath("../RunCompleteOverlay/Card/BestStreakLabel")
 summary_session_streak_label = NodePath("../RunCompleteOverlay/Card/SessionStreakLabel")

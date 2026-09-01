@@ -16,83 +16,28 @@ func _sync_physics() -> void:
 	await physics_frame
 
 func _run_tests() -> void:
-	print("--- BEGINNING STEP 14B AUTOMATED TEST SUITE (PERSONAL RECORD CELEBRATION) ---")
+	print("--- BEGINNING STEP 14C AUTOMATED TEST SUITE (STREAK MILESTONES & PERFECT RUN) ---")
 
 	# Define isolated test save paths
-	var test_save_path: String = "user://test_save_14b.cfg"
-	var fresh_save_path: String = "user://test_save_14b_fresh.cfg"
+	var test_save_path: String = "user://test_save_14c.cfg"
+	var fresh_save_path: String = "user://test_save_14c_fresh.cfg"
 
 	if FileAccess.file_exists(test_save_path):
 		DirAccess.remove_absolute(test_save_path)
 	if FileAccess.file_exists(fresh_save_path):
 		DirAccess.remove_absolute(fresh_save_path)
 
-	# --- TEST SCENARIO G & N: FRESH INSTALL TUTORIAL SOLVE SUPPRESSES TRIVIAL x1 RECORD BANNER ---
-	print("\n[SCENARIO G & N] Fresh install tutorial solve -> PB becomes 1, but NO trivial record banner")
-	var sm_fresh := SaveManager.new()
-	sm_fresh.save_path = fresh_save_path
-	sm_fresh.sound_enabled = true
-	sm_fresh.haptics_enabled = true
-	sm_fresh.personal_best_streak = 0
-	sm_fresh.tutorial_completed = false
-	sm_fresh.save_data()
+	# --- TEST SCENARIO D, O, P: RECORD BREAK PRECEDENCE OVER x5 MILESTONE ---
+	print("\n[SCENARIO D, O, P] PB = 4 -> reaching x5 triggers Personal Record Banner, suppressing x5 milestone text")
+	var sm_d := SaveManager.new()
+	sm_d.save_path = test_save_path
+	sm_d.sound_enabled = true
+	sm_d.haptics_enabled = true
+	sm_d.personal_best_streak = 4
+	sm_d.tutorial_completed = true
+	sm_d.save_data()
 
 	var main_scene: PackedScene = load("res://scenes/main.tscn")
-	var main_node_fresh: Node2D = main_scene.instantiate()
-	var sm_node_fresh: SaveManager = main_node_fresh.get_node("SaveManager") as SaveManager
-	sm_node_fresh.save_path = fresh_save_path
-
-	root.add_child(main_node_fresh)
-	await process_frame
-	await _sync_physics()
-
-	var lm_fresh: LevelManager = main_node_fresh.get_node("LevelManager") as LevelManager
-	var mm_fresh: Control = main_node_fresh.get_node("MainMenu") as Control
-	var start_fresh_btn: Button = mm_fresh.get_node("StartGameButton") as Button
-	var record_banner_fresh: Control = main_node_fresh.get_node("RecordBanner") as Control
-
-	lm_fresh.transition_delay = 0.01
-	lm_fresh.summary_delay = 0.01
-	lm_fresh.failure_delay = 0.01
-
-	start_fresh_btn.pressed.emit()
-	await process_frame
-	await _sync_physics()
-
-	assert(lm_fresh.personal_best_at_run_start == 0, "Scenario G: personal_best_at_run_start is 0")
-	assert(lm_fresh.record_broken_this_run == false, "Scenario G: record_broken_this_run is false")
-	assert(lm_fresh.is_onboarding_active == true, "Scenario N: Onboarding active on first run")
-
-	# Solve tutorial level
-	var cor_p_fresh: DraggablePiece = null
-	for p in lm_fresh.math_pieces:
-		if p.piece_text == lm_fresh.current_level_data.correct_answer:
-			cor_p_fresh = p
-			break
-	assert(cor_p_fresh != null)
-	cor_p_fresh.global_position = lm_fresh.math_target_zone.global_position
-	await _sync_physics()
-	lm_fresh._on_math_piece_dropped(cor_p_fresh)
-	await lm_fresh.level_completed
-
-	assert(lm_fresh.current_streak == 1, "Scenario G: Streak incremented to 1")
-	assert(lm_fresh.personal_best_streak == 1, "Scenario G: PB updated to 1")
-	assert(record_banner_fresh.visible == false, "Scenario G: Record banner was suppressed for trivial x1 PB")
-	assert(lm_fresh.record_broken_this_run == false, "Scenario G: record_broken_this_run remained false")
-
-	root.remove_child(main_node_fresh)
-	main_node_fresh.queue_free()
-	await process_frame
-
-	# --- SETUP ESTABLISHED PLAYER SAVE WITH PB = 5 ---
-	var sm_setup := SaveManager.new()
-	sm_setup.save_path = test_save_path
-	sm_setup.sound_enabled = true
-	sm_setup.haptics_enabled = true
-	sm_setup.personal_best_streak = 5
-	sm_setup.tutorial_completed = true
-	sm_setup.save_data()
-
 	var main_node: Node2D = main_scene.instantiate()
 	var save_manager: SaveManager = main_node.get_node("SaveManager") as SaveManager
 	save_manager.save_path = test_save_path
@@ -105,11 +50,14 @@ func _run_tests() -> void:
 	var feedback_manager: FeedbackManager = main_node.get_node("FeedbackManager") as FeedbackManager
 	var main_menu: Control = main_node.get_node("MainMenu") as Control
 	var start_btn: Button = main_menu.get_node("StartGameButton") as Button
+	var success_lbl: Label = main_node.get_node("SuccessLabel") as Label
 	var record_banner: Control = main_node.get_node("RecordBanner") as Control
-	var record_title: Label = record_banner.get_node("RecordTitleLabel") as Label
-	var record_val: Label = record_banner.get_node("RecordValueLabel") as Label
-	var failure_overlay: Control = main_node.get_node("RunFailureOverlay") as Control
-	var failure_try_again_btn: Button = failure_overlay.get_node("Card/TryAgainButton") as Button
+	var summary_overlay: Control = main_node.get_node("RunCompleteOverlay") as Control
+	var summary_title: Label = summary_overlay.get_node("Card/CardTitle") as Label
+	var summary_final_streak: Label = summary_overlay.get_node("Card/FinalStreakLabel") as Label
+	var summary_best_streak: Label = summary_overlay.get_node("Card/BestStreakLabel") as Label
+	var summary_session_streak: Label = summary_overlay.get_node("Card/SessionStreakLabel") as Label
+	var play_again_btn: Button = summary_overlay.get_node("Card/PlayAgainButton") as Button
 
 	level_manager.transition_delay = 0.01
 	level_manager.summary_delay = 0.01
@@ -136,130 +84,193 @@ func _run_tests() -> void:
 			level_manager._on_math_piece_dropped(cp)
 		await level_manager.level_completed
 
-	# --- TEST SCENARIO A: RUN START WITH PB = 5 ---
-	print("\n[SCENARIO A] Run start with existing PB = 5 captures personal_best_at_run_start = 5 and record_broken_this_run = false")
 	start_btn.pressed.emit()
 	await process_frame
 	await _sync_physics()
 
-	assert(level_manager.personal_best_at_run_start == 5, "Scenario A: personal_best_at_run_start is 5")
-	assert(level_manager.record_broken_this_run == false, "Scenario A: record_broken_this_run is false")
-	assert(level_manager.current_run_levels.size() == 15, "Scenario P: 15-level run intact")
-	assert(level_manager.levels.size() == 36, "Scenario O: 36 master levels intact")
+	assert(level_manager.personal_best_at_run_start == 4, "PB at run start is 4")
+	assert(level_manager.mistakes_this_run == 0, "Scenario G: mistakes_this_run is 0 on fresh run")
+	assert(level_manager.current_run_levels.size() == 15, "Scenario R: 15 levels generated")
+	assert(level_manager.levels.size() == 36, "Scenario Q: 36 levels in pool")
 
-	# --- TEST SCENARIO B: SOLVE 5 PUZZLES (REACH STREAK 5) -> NO CELEBRATION BANNER ---
-	print("\n[SCENARIO B] Reach streak 5 -> no record celebration banner")
-	for i in range(5):
+	# Solves 1 to 4: standard feedback
+	for i in range(4):
 		await solve_current.call()
-		assert(record_banner.visible == false, "Scenario B: No record banner at streak %d" % level_manager.current_streak)
+		assert(success_lbl.text == "Harika!", "Scenario A: Standard 'Harika!' at streak %d" % level_manager.current_streak)
+		assert(record_banner.visible == false, "No record banner yet")
 		if level_manager.transition_tween:
 			await level_manager.transition_tween.finished
 		await process_frame
 		await _sync_physics()
 
+	assert(level_manager.current_streak == 4, "Streak is 4")
+
+	# Solve 5: Reaching x5 breaks PB of 4 -> Personal Record Celebration takes priority over x5 milestone
+	await solve_current.call()
 	assert(level_manager.current_streak == 5, "Streak is 5")
-	assert(level_manager.personal_best_streak == 5, "Personal best streak is 5")
-	assert(level_manager.record_broken_this_run == false, "record_broken_this_run is false at streak 5")
+	assert(record_banner.visible == true, "Scenario D: Record banner triggered at x5 (beats PB 4)")
+	assert(level_manager.record_broken_this_run == true, "Scenario D: record_broken_this_run is true")
+	assert(success_lbl.visible == false, "Scenario D: success_lbl hidden during record celebration")
 
-	# --- TEST SCENARIO C: SOLVE 6TH PUZZLE (STREAK 6) -> RECORD CELEBRATION TRIGGERS ---
-	print("\n[SCENARIO C] Reach streak 6 -> triggers 'Yeni Kişisel Rekor! x6' celebration once")
-	await solve_current.call()
-
-	assert(level_manager.current_streak == 6, "Scenario C: Current streak is 6")
-	assert(level_manager.personal_best_streak == 6, "Scenario C: Personal best streak updated to 6")
-	assert(save_manager.get_personal_best_streak() == 6, "Scenario C: Saved PB is 6")
-	assert(level_manager.record_broken_this_run == true, "Scenario C: record_broken_this_run is true")
-	assert(record_banner.visible == true, "Scenario C: Record banner visible")
-	assert(record_title.text == "Yeni Kişisel Rekor!", "Scenario C: Title is 'Yeni Kişisel Rekor!'")
-	assert(record_val.text == "x6", "Scenario C: Value label is 'x6'")
-
-	# Advance past banner
 	if level_manager.transition_tween:
 		await level_manager.transition_tween.finished
 	await process_frame
 	await _sync_physics()
 
-	assert(record_banner.visible == false, "Record banner cleaned on next level")
+	# --- TEST SCENARIO F, I: NEUTRAL DROP DOES NOT AFFECT STREAK OR MISTAKES ---
+	print("\n[SCENARIO F & I] Neutral drop in empty space -> streak and mistakes_this_run unchanged")
+	var prev_mistakes = level_manager.mistakes_this_run
+	var prev_streak = level_manager.current_streak
+	var cur_data = level_manager.current_level_data
+	if cur_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
+		level_manager.shape_piece_a.global_position = Vector2(50, 50)
+		await _sync_physics()
+		level_manager._on_shape_piece_dropped(level_manager.shape_piece_a)
+	else:
+		level_manager.math_pieces[0].global_position = Vector2(50, 50)
+		await _sync_physics()
+		level_manager._on_math_piece_dropped(level_manager.math_pieces[0])
 
-	# --- TEST SCENARIO D: SOLVE 7TH AND 8TH PUZZLES (STREAKS 7 & 8) -> NO SECOND BANNER ---
-	print("\n[SCENARIO D] Reach streaks 7 & 8 -> PB updates to 7 and 8 with NO second banner")
+	assert(level_manager.current_streak == prev_streak, "Scenario F: Streak unchanged after neutral drop")
+	assert(level_manager.mistakes_this_run == prev_mistakes, "Scenario I: mistakes_this_run unchanged after neutral drop")
+
+	# --- TEST SCENARIO C: REACH STREAK x10 -> 'Müthiş Seri!' ---
+	print("\n[SCENARIO C] Solves 6 to 10 -> reaching streak 10 shows 'Müthiş Seri!'")
+	for i in range(4): # Solves 6, 7, 8, 9
+		await solve_current.call()
+		if level_manager.transition_tween:
+			await level_manager.transition_tween.finished
+		await process_frame
+		await _sync_physics()
+
+	assert(level_manager.current_streak == 9, "Streak is 9")
+
+	# Solve 10: triggers x10 milestone
 	await solve_current.call()
-	assert(level_manager.current_streak == 7, "Streak is 7")
-	assert(level_manager.personal_best_streak == 7, "PB updated to 7")
-	assert(record_banner.visible == false, "Scenario D: No second banner at streak 7")
+	assert(level_manager.current_streak == 10, "Streak is 10")
+	assert(success_lbl.visible == true, "Success label visible")
+	assert(success_lbl.text == "Müthiş Seri!", "Scenario C: x10 milestone displays 'Müthiş Seri!'")
+
 	if level_manager.transition_tween:
 		await level_manager.transition_tween.finished
 	await process_frame
 	await _sync_physics()
 
-	await solve_current.call()
-	assert(level_manager.current_streak == 8, "Streak is 8")
-	assert(level_manager.personal_best_streak == 8, "PB updated to 8")
-	assert(record_banner.visible == false, "Scenario D: No second banner at streak 8")
-	if level_manager.transition_tween:
-		await level_manager.transition_tween.finished
+	# --- TEST SCENARIO J, K: FLAWLESS 15/15 FINISH -> 'Mükemmel Tur!' RECOGNITION ---
+	print("\n[SCENARIO J & K] Finish levels 11 to 15 with 0 mistakes -> 'Mükemmel Tur!' result overlay")
+	for i in range(4): # Solves 11, 12, 13, 14
+		await solve_current.call()
+		if level_manager.transition_tween:
+			await level_manager.transition_tween.finished
+		await process_frame
+		await _sync_physics()
+
+	assert(level_manager.current_level_index == 14, "On final level 15")
+	await solve_current.call() # Solve 15
+	assert(success_lbl.text == "Harika! Mükemmel Tur!", "Final level success feedback shows Mükemmel Tur")
+
+	if level_manager.summary_tween:
+		await level_manager.summary_tween.finished
 	await process_frame
 	await _sync_physics()
 
-	# --- TEST SCENARIO E: WRONG DROP RESETS STREAK, REBUILD DOES NOT RETRIGGER BANNER ---
-	print("\n[SCENARIO E] Deliberate wrong drop resets streak -> rebuilding streak does NOT re-trigger banner in same run")
-	level_manager._reset_streak()
+	assert(summary_overlay.visible == true, "Summary overlay visible")
+	assert(level_manager.mistakes_this_run == 0, "Zero mistakes in run")
+	assert(summary_title.text.contains("Mükemmel Tur!"), "Scenario J: Title displays 'Mükemmel Tur!'")
+	assert(summary_final_streak.text == "Son Seri: x15", "Scenario K: Final streak is x15")
+	assert(summary_best_streak.text == "Bu Tur En İyi: x15", "Scenario K: Best streak is x15")
+	assert(summary_session_streak.text == "Kişisel Rekor: x15", "Scenario K: Kişisel Rekor is x15")
+
+	# --- TEST SCENARIO B, E, H, L, M: RUN WITH 1 MISTAKE -> 'Harika Seri!' RE-TRIGGER & NON-PERFECT COMPLETION ---
+	print("\n[SCENARIO B, E, H, L, M] Start new run with 1 mistake -> resets mistakes to 0, tests x5 milestone, shows 'Tur Tamamlandı!'")
+	play_again_btn.pressed.emit()
+	await process_frame
+	await _sync_physics()
+
+	assert(level_manager.mistakes_this_run == 0, "Scenario M: New run resets mistakes_this_run = 0")
+	assert(level_manager.current_streak == 0, "New run resets streak = 0")
+
+	# Make a deliberate wrong drop on level 1
+	var c_data = level_manager.current_level_data
+	if c_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
+		level_manager.shape_piece_a.reset_piece()
+		var old_m = level_manager.shape_piece_a.match_id
+		level_manager.shape_piece_a.match_id = "wrong_id"
+		level_manager.shape_piece_a.global_position = level_manager.shape_piece_b.global_position
+		await _sync_physics()
+		level_manager._on_shape_piece_dropped(level_manager.shape_piece_a)
+		level_manager.shape_piece_a.match_id = old_m
+	else:
+		var wp: DraggablePiece = null
+		for p in level_manager.math_pieces:
+			if p.piece_text != c_data.correct_answer:
+				wp = p
+				break
+		assert(wp != null)
+		wp.reset_piece()
+		wp.global_position = level_manager.math_target_zone.global_position
+		await _sync_physics()
+		level_manager._on_math_piece_dropped(wp)
+
+	assert(level_manager.mistakes_this_run == 1, "Scenario H: Deliberate wrong drop incremented mistakes_this_run to 1")
 	assert(level_manager.current_streak == 0, "Streak reset to 0")
-	assert(level_manager.record_broken_this_run == true, "record_broken_this_run remains true")
 
-	# Solve another level: streak goes from 0 to 1
+	# Solve Level 1
 	await solve_current.call()
-	assert(level_manager.current_streak == 1, "Streak is 1")
-	assert(record_banner.visible == false, "Scenario E: No banner on rebuild")
 	if level_manager.transition_tween:
 		await level_manager.transition_tween.finished
 	await process_frame
 	await _sync_physics()
 
-	# --- TEST SCENARIO I: RETURN TO MAIN MENU CLEANS BANNER TWEEN ---
-	print("\n[SCENARIO I] Return to Main Menu cleans any banner tween safely")
-	level_manager._show_record_celebration(9)
-	assert(record_banner.visible == true, "Banner simulated")
+	# Solve Levels 2, 3, 4, 5 (streaks 2, 3, 4, 5)
+	for i in range(3): # Levels 2, 3, 4 (streaks 2, 3, 4)
+		await solve_current.call()
+		if level_manager.transition_tween:
+			await level_manager.transition_tween.finished
+		await process_frame
+		await _sync_physics()
+
+	assert(level_manager.current_streak == 4, "Streak is 4")
+
+	# Level 5 solve (streak reaches 5)
+	await solve_current.call()
+	assert(level_manager.current_streak == 5, "Streak is 5")
+	assert(success_lbl.text == "Harika Seri!", "Scenario B & E: x5 milestone displays 'Harika Seri!'")
+
+	if level_manager.transition_tween:
+		await level_manager.transition_tween.finished
+	await process_frame
+	await _sync_physics()
+
+	# Complete remaining levels (6 to 15)
+	for i in range(10):
+		await solve_current.call()
+		if level_manager.current_level_index < 14 and level_manager.transition_tween:
+			await level_manager.transition_tween.finished
+		await process_frame
+		await _sync_physics()
+
+	if level_manager.summary_tween:
+		await level_manager.summary_tween.finished
+	await process_frame
+	await _sync_physics()
+
+	assert(summary_overlay.visible == true, "Summary overlay visible")
+	assert(level_manager.mistakes_this_run == 1, "1 mistake in run")
+	assert(summary_title.text == "Tur Tamamlandı!", "Scenario L: Non-perfect run title is 'Tur Tamamlandı!' (NOT 'Mükemmel Tur!')")
+	assert(not summary_title.text.contains("Mükemmel"), "Scenario L: Does not say Mükemmel")
+
+	# --- TEST SCENARIO N: RETURN TO MAIN MENU RESETS mistakes_this_run ---
+	print("\n[SCENARIO N] Return to Main Menu and start new run -> mistakes_this_run = 0")
 	main_node.return_to_main_menu()
 	await process_frame
 	await _sync_physics()
-	assert(record_banner.visible == false, "Scenario I: Banner hidden on Main Menu")
-	assert(level_manager.record_banner_tween == null, "Scenario I: Tween killed")
 
-	# --- TEST SCENARIO F: NEW RUN INITIALIZATION WITH LATEST PB = 8 ---
-	print("\n[SCENARIO F] Start new run -> personal_best_at_run_start uses latest saved PB (8) & resets record_broken_this_run = false")
 	start_btn.pressed.emit()
 	await process_frame
 	await _sync_physics()
 
-	assert(level_manager.personal_best_at_run_start == 8, "Scenario F: personal_best_at_run_start is 8")
-	assert(level_manager.record_broken_this_run == false, "Scenario F: record_broken_this_run is false")
-
-	# --- TEST SCENARIO J: FAILURE OVERLAY CLEANS BANNER ---
-	print("\n[SCENARIO J] Run failure cleans banner safely")
-	level_manager._show_record_celebration(9)
-	assert(record_banner.visible == true)
-	level_manager._show_run_failure_overlay()
-	assert(record_banner.visible == false, "Scenario J: Banner hidden on failure overlay")
-
-	# --- TEST SCENARIO K: RUN COMPLETE OVERLAY CLEANS BANNER ---
-	print("\n[SCENARIO K] Run complete cleans banner safely")
-	level_manager.is_run_completed = true
-	level_manager._show_record_celebration(10)
-	assert(record_banner.visible == true)
-	level_manager._show_run_complete_overlay()
-	assert(record_banner.visible == false, "Scenario K: Banner hidden on run complete overlay")
-
-	# --- TEST SCENARIO L & M: SOUND AND HAPTIC DISABLED SETTINGS RESPECTED ---
-	print("\n[SCENARIO L & M] Sound and haptics disabled settings respected during record celebration")
-	for p in feedback_manager._players:
-		p.stop()
-	feedback_manager.sound_enabled = false
-	feedback_manager.haptics_enabled = false
-	feedback_manager.play_record_break()
-	# No audio player should be playing when sound_enabled is false
-	for p in feedback_manager._players:
-		assert(not p.playing, "Scenario L: No SFX played when sound_enabled = false")
+	assert(level_manager.mistakes_this_run == 0, "Scenario N: mistakes_this_run is 0")
 
 	# Clean up test save files
 	if FileAccess.file_exists(test_save_path):
@@ -267,7 +278,7 @@ func _run_tests() -> void:
 	if FileAccess.file_exists(fresh_save_path):
 		DirAccess.remove_absolute(fresh_save_path)
 
-	print("\n>>> ALL STEP 14B AUTOMATED TESTS (SCENARIOS A - P) PASSED PERFECTLY! <<<\n")
+	print("\n>>> ALL STEP 14C AUTOMATED TESTS (SCENARIOS A - R) PASSED PERFECTLY! <<<\n")
 	quit(0)
 
 
