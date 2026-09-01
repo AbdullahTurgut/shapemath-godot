@@ -99,9 +99,6 @@ func _ready() -> void:
 		next_button.pressed.connect(advance_to_next_level)
 
 	_ensure_levels_loaded()
-	generate_run_sequence()
-	_update_lives_ui(false)
-	load_level(0)
 
 
 func _ensure_levels_loaded() -> void:

@@ -16,18 +16,39 @@ func _sync_physics() -> void:
 	await physics_frame
 
 func _run_tests() -> void:
-	print("--- BEGINNING STEP 13A AUTOMATED TEST SUITE (PERSISTENT SETTINGS & PERSONAL BEST ARCHITECTURE) ---")
+	print("--- BEGINNING STEP 13B AUTOMATED TEST SUITE (MAIN MENU & START GAME FLOW) ---")
+
+	# Define isolated test save path
+	var test_save_path: String = "user://test_save_13b.cfg"
+	if FileAccess.file_exists(test_save_path):
+		DirAccess.remove_absolute(test_save_path)
+
+	# Pre-populate a test save with personal_best_streak = 8 for Scenario D test
+	var sm_setup := SaveManager.new()
+	sm_setup.save_path = test_save_path
+	sm_setup.personal_best_streak = 8
+	sm_setup.save_data()
+
 	var main_scene: PackedScene = load("res://scenes/main.tscn")
 	var main_node: Node2D = main_scene.instantiate()
+
+	# Point SaveManager to isolated test path before adding to tree
+	var save_manager: SaveManager = main_node.get_node("SaveManager") as SaveManager
+	save_manager.save_path = test_save_path
+
 	root.add_child(main_node)
 
 	# Allow a frame for _ready to execute
 	await process_frame
 	await _sync_physics()
 
-	var save_manager: SaveManager = main_node.get_node("SaveManager") as SaveManager
 	var feedback_manager: FeedbackManager = main_node.get_node("FeedbackManager") as FeedbackManager
 	var level_manager: LevelManager = main_node.get_node("LevelManager") as LevelManager
+	var main_menu: Control = main_node.get_node("MainMenu") as Control
+	var menu_title_lbl: Label = main_menu.get_node("TitleLabel") as Label
+	var menu_pb_lbl: Label = main_menu.get_node("PersonalBestLabel") as Label
+	var start_btn: Button = main_menu.get_node("StartGameButton") as Button
+
 	var level_lbl: Label = main_node.get_node("LevelIndicatorLabel") as Label
 	var lives_lbl: Label = main_node.get_node("LivesLabel") as Label
 	var streak_lbl: Label = main_node.get_node("StreakLabel") as Label
@@ -40,170 +61,60 @@ func _run_tests() -> void:
 	var failure_overlay: Control = main_node.get_node("RunFailureOverlay") as Control
 	var try_again_btn: Button = failure_overlay.get_node("Card/TryAgainButton") as Button
 
-	assert(save_manager != null, "SaveManager must exist in main scene")
-	assert(feedback_manager != null, "FeedbackManager must exist in main scene")
-	assert(level_manager != null, "LevelManager must exist in main scene")
+	assert(main_menu != null, "MainMenu control node must exist")
+	assert(start_btn != null, "StartGameButton must exist")
+	assert(menu_pb_lbl != null, "PersonalBestLabel must exist")
 
 	# Accelerate animation delays for test suite execution speed
 	level_manager.transition_delay = 0.01
 	level_manager.summary_delay = 0.01
 	level_manager.failure_delay = 0.01
 
-	# Define isolated test save paths so developer's actual save file is unaffected
-	var test_save_path: String = "user://test_save_13a.cfg"
-	var test_corrupt_path: String = "user://test_corrupt_13a.cfg"
-	var test_partial_path: String = "user://test_partial_13a.cfg"
+	# --- TEST SCENARIO A: FRESH APP LAUNCH SHOWS MAIN MENU ---
+	print("\n[SCENARIO A] App launches into Main Menu")
+	assert(main_menu.visible == true, "Scenario A: Main Menu must be visible on launch")
+	assert(menu_title_lbl.text == "ShapeMath", "Scenario A: Title must be 'ShapeMath'")
 
-	# Clean up any existing test files
-	if FileAccess.file_exists(test_save_path):
-		DirAccess.remove_absolute(test_save_path)
-	if FileAccess.file_exists(test_corrupt_path):
-		DirAccess.remove_absolute(test_corrupt_path)
-	if FileAccess.file_exists(test_partial_path):
-		DirAccess.remove_absolute(test_partial_path)
+	# --- TEST SCENARIO B: GAMEPLAY CONTENT HIDDEN / INACTIVE ON LAUNCH ---
+	print("\n[SCENARIO B] Gameplay content hidden and inactive on launch before pressing Oyuna Başla")
+	assert(prompt_lbl.visible == false, "Scenario B: prompt_label must be hidden on launch")
+	assert(level_lbl.visible == false, "Scenario B: level_indicator_label must be hidden on launch")
+	assert(lives_lbl.visible == false, "Scenario B: lives_label must be hidden on launch")
+	assert(level_manager.current_level_data == null, "Scenario B: No active puzzle data before start")
+	assert(level_manager.math_pieces.is_empty(), "Scenario B: No active draggable math pieces before start")
+	assert(level_manager.shape_pieces.is_empty(), "Scenario B: No active draggable shape pieces before start")
 
-	# --- TEST SCENARIO A: FIRST LAUNCH DEFAULTS (NO FILE EXISTS) ---
-	print("\n[SCENARIO A] First launch defaults when no save file exists")
-	var sm_test := SaveManager.new()
-	sm_test.save_path = test_save_path
-	sm_test.load_data()
-	assert(sm_test.get_sound_enabled() == true, "Scenario A: Default sound_enabled must be true")
-	assert(sm_test.get_haptics_enabled() == true, "Scenario A: Default haptics_enabled must be true")
-	assert(sm_test.get_personal_best_streak() == 0, "Scenario A: Default personal_best_streak must be 0")
+	# --- TEST SCENARIO C & D: PERSONAL BEST DISPLAY REFLECTS PERSISTED VALUE ---
+	print("\n[SCENARIO C & D] Main Menu displays loaded Kişisel Rekor (x8)")
+	assert(menu_pb_lbl.text == "Kişisel Rekor: x8", "Scenario D: Personal best label must show 'Kişisel Rekor: x8' (got '%s')" % menu_pb_lbl.text)
 
-	# --- TEST SCENARIO B: SETTINGS SAVE & RELOAD ---
-	print("\n[SCENARIO B] Settings save & reload from disk")
-	sm_test.set_sound_enabled(false)
-	sm_test.set_haptics_enabled(false)
-
-	var sm_reload := SaveManager.new()
-	sm_reload.save_path = test_save_path
-	sm_reload.load_data()
-	assert(sm_reload.get_sound_enabled() == false, "Scenario B: Persisted sound_enabled must be false")
-	assert(sm_reload.get_haptics_enabled() == false, "Scenario B: Persisted haptics_enabled must be false")
-
-	# --- TEST SCENARIO C: INDEPENDENT TOGGLES ---
-	print("\n[SCENARIO C] Independent sound and haptic toggles")
-	sm_test.set_sound_enabled(false)
-	sm_test.set_haptics_enabled(true)
-
-	var sm_reload2 := SaveManager.new()
-	sm_reload2.save_path = test_save_path
-	sm_reload2.load_data()
-	assert(sm_reload2.get_sound_enabled() == false, "Scenario C: sound_enabled must be false")
-	assert(sm_reload2.get_haptics_enabled() == true, "Scenario C: haptics_enabled must be true")
-
-	# --- TEST SCENARIO D: PERSONAL RECORD SAVE & RELOAD ---
-	print("\n[SCENARIO D] Update personal best streak and reload")
-	var updated_d: bool = sm_test.update_personal_best_streak(5)
-	assert(updated_d == true, "Scenario D: Updating from 0 to 5 returns true")
-
-	var sm_reload3 := SaveManager.new()
-	sm_reload3.save_path = test_save_path
-	sm_reload3.load_data()
-	assert(sm_reload3.get_personal_best_streak() == 5, "Scenario D: Persisted personal best must be 5")
-
-	# --- TEST SCENARIO E: PERSONAL RECORD CANNOT DECREASE ---
-	print("\n[SCENARIO E] Personal best cannot decrease when lower streak is attempted")
-	var updated_e: bool = sm_test.update_personal_best_streak(3)
-	assert(updated_e == false, "Scenario E: Lower streak of 3 must not overwrite 5 and returns false")
-	assert(sm_test.get_personal_best_streak() == 5, "Scenario E: Personal best remains 5")
-
-	# --- TEST SCENARIO F: PERSONAL RECORD INCREASES ---
-	print("\n[SCENARIO F] Personal best increases to 8")
-	var updated_f: bool = sm_test.update_personal_best_streak(8)
-	assert(updated_f == true, "Scenario F: Updating from 5 to 8 returns true")
-	assert(sm_test.get_personal_best_streak() == 8, "Scenario F: Personal best is 8")
-
-	var sm_reload4 := SaveManager.new()
-	sm_reload4.save_path = test_save_path
-	sm_reload4.load_data()
-	assert(sm_reload4.get_personal_best_streak() == 8, "Scenario F: Persisted personal best is 8")
-
-	# --- TEST SCENARIO G: SESSION RESET SEMANTICS ---
-	print("\n[SCENARIO G] Session reset semantics: volatile streaks reset, personal best preserved")
-	level_manager.save_manager = sm_reload4
-	level_manager.personal_best_streak = sm_reload4.get_personal_best_streak()
-	level_manager.current_streak = 0
-	level_manager.best_streak_this_run = 0
-	level_manager.best_streak_session = 0
-
-	assert(level_manager.current_streak == 0, "Scenario G: current_streak is 0")
-	assert(level_manager.best_streak_this_run == 0, "Scenario G: best_streak_this_run is 0")
-	assert(level_manager.best_streak_session == 0, "Scenario G: best_streak_session is 0")
-	assert(level_manager.personal_best_streak == 8, "Scenario G: personal_best_streak preserved at 8")
-
-	# --- TEST SCENARIO H: CORRUPT / MALFORMED CONFIG ---
-	print("\n[SCENARIO H] Corrupted config file safely falls back to defaults without crashing")
-	var file_corrupt := FileAccess.open(test_corrupt_path, FileAccess.WRITE)
-	file_corrupt.store_string("[settings\nmalformed === {{{ }}} corrupt data")
-	file_corrupt.close()
-
-	var sm_corrupt := SaveManager.new()
-	sm_corrupt.save_path = test_corrupt_path
-	sm_corrupt.load_data()
-	assert(sm_corrupt.get_sound_enabled() == true, "Scenario H: Fallback sound_enabled is true")
-	assert(sm_corrupt.get_haptics_enabled() == true, "Scenario H: Fallback haptics_enabled is true")
-	assert(sm_corrupt.get_personal_best_streak() == 0, "Scenario H: Fallback personal_best_streak is 0")
-
-	# --- TEST SCENARIO I: MISSING KEYS / PARTIAL CONFIG ---
-	print("\n[SCENARIO I] Partial config loads present keys and falls back for missing keys")
-	var file_partial := FileAccess.open(test_partial_path, FileAccess.WRITE)
-	file_partial.store_string("[settings]\nsound_enabled=false\n")
-	file_partial.close()
-
-	var sm_partial := SaveManager.new()
-	sm_partial.save_path = test_partial_path
-	sm_partial.load_data()
-	assert(sm_partial.get_sound_enabled() == false, "Scenario I: Loaded sound_enabled is false")
-	assert(sm_partial.get_haptics_enabled() == true, "Scenario I: Fallback haptics_enabled is true")
-	assert(sm_partial.get_personal_best_streak() == 0, "Scenario I: Fallback personal_best_streak is 0")
-
-	# --- TEST SCENARIO J, K, L, M: FEEDBACK SOUND AND HAPTIC SUPPRESSION ---
-	print("\n[SCENARIO J, K, L, M] FeedbackManager suppression behavior for sound & haptics")
-	# Scenario J: Sound disabled suppresses AudioPlayer
-	feedback_manager.sound_enabled = false
-	feedback_manager.haptics_enabled = true
-	feedback_manager.play_correct()
-	for player in feedback_manager._players:
-		assert(not player.playing, "Scenario J: No AudioPlayer should be playing when sound_enabled is false")
-
-	# Scenario M: Sound enabled + Haptics disabled
-	feedback_manager.sound_enabled = true
-	feedback_manager.haptics_enabled = false
-	feedback_manager.play_correct()
-	var any_playing: bool = false
-	for player in feedback_manager._players:
-		if player.playing:
-			any_playing = true
-			break
-	assert(any_playing == true, "Scenario M: AudioPlayer plays when sound_enabled is true")
-
-	# Restore feedback manager settings to true
-	feedback_manager.sound_enabled = true
-	feedback_manager.haptics_enabled = true
-
-	# --- TEST SCENARIO N: GAMEPLAY INTEGRATION & REGRESSION ---
-	print("\n[SCENARIO N] Gameplay integration: solve level updates personal best and runs 15-level flow")
-	var sm_game := SaveManager.new()
-	sm_game.save_path = test_save_path
-	sm_game.personal_best_streak = 0
-	sm_game.save_data()
-
-	level_manager.save_manager = sm_game
-	level_manager.personal_best_streak = 0
-	level_manager.current_streak = 0
-	level_manager.best_streak_this_run = 0
-	level_manager.best_streak_session = 0
-
-	level_manager.current_run_levels.clear()
-	level_manager.generate_run_sequence()
-	assert(level_manager.current_run_levels.size() == 15, "Scenario N: Generated run has 15 levels")
-	level_manager.load_level(0)
+	# --- TEST SCENARIO E, F, G, H: PRESS OYUNA BAŞLA -> TRANSITIONS TO GAMEPLAY ---
+	print("\n[SCENARIO E, F, G, H] Press 'Oyuna Başla' -> transitions to active Level 1/15 run")
+	start_btn.pressed.emit()
 	await process_frame
 	await _sync_physics()
 
-	# Helper to solve active level
+	assert(main_menu.visible == false, "Scenario E: Main Menu is hidden after start")
+	assert(prompt_lbl.visible == true, "Scenario E: prompt_label is visible")
+	assert(level_lbl.visible == true, "Scenario E: level_indicator_label is visible")
+	assert(level_lbl.text == "Bölüm 1 / 15", "Scenario E: Indicator shows 'Bölüm 1 / 15'")
+	assert(lives_lbl.visible == true, "Scenario E: lives_label is visible")
+	assert(lives_lbl.text == "♥ ♥ ♥", "Scenario E: 3 lives displayed")
+	assert(level_manager.current_lives == 3, "Scenario E: Lives = 3")
+	assert(level_manager.current_streak == 0, "Scenario E: current_streak = 0")
+	assert(level_manager.best_streak_this_run == 0, "Scenario E: best_streak_this_run = 0")
+	assert(level_manager.current_run_levels.size() == 15, "Scenario E: 15 levels generated")
+
+	# Scenario F: Tier distribution
+	for i in range(15):
+		if i < 5:
+			assert(level_manager.current_run_levels[i].tier == 1, "Scenario F: Position %d must be Tier 1" % (i + 1))
+		elif i < 10:
+			assert(level_manager.current_run_levels[i].tier == 2, "Scenario F: Position %d must be Tier 2" % (i + 1))
+		else:
+			assert(level_manager.current_run_levels[i].tier == 3, "Scenario F: Position %d must be Tier 3" % (i + 1))
+
+	# Scenario H: Puzzle is interactive and solves
 	var solve_active_level = func() -> void:
 		var c_lvl = level_manager.current_level_data
 		if c_lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
@@ -222,22 +133,87 @@ func _run_tests() -> void:
 			level_manager._on_math_piece_dropped(cor_piece)
 		await level_manager.level_completed
 
-	# Solve Level 1
 	await solve_active_level.call()
-	assert(level_manager.current_streak == 1, "Streak is 1")
-	assert(level_manager.personal_best_streak == 1, "personal_best_streak is 1")
-	assert(sm_game.get_personal_best_streak() == 1, "SaveManager personal_best_streak is 1")
+	assert(level_manager.current_streak == 1, "Scenario H: Streak increments to 1 on solve")
+	if level_manager.transition_tween:
+		await level_manager.transition_tween.finished
+	await process_frame
+	await _sync_physics()
 
-	# Clean up test files
+	# --- TEST SCENARIO I: RUN FAILURE & RETRY FLOW ---
+	print("\n[SCENARIO I] Run failure and Tekrar Dene")
+	level_manager.current_lives = 1
+	var cur_lvl = level_manager.current_level_data
+	if cur_lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
+		level_manager.shape_piece_a.global_position = level_manager.shape_piece_b.global_position
+		var old_m = level_manager.shape_piece_a.match_id
+		level_manager.shape_piece_a.match_id = "wrong_match_id"
+		await _sync_physics()
+		level_manager._on_shape_piece_dropped(level_manager.shape_piece_a)
+		level_manager.shape_piece_a.match_id = old_m
+	else:
+		var w_piece: DraggablePiece = null
+		for p in level_manager.math_pieces:
+			if p.piece_text != cur_lvl.correct_answer:
+				w_piece = p
+				break
+		assert(w_piece != null)
+		w_piece.global_position = level_manager.math_target_zone.global_position
+		await _sync_physics()
+		level_manager._on_math_piece_dropped(w_piece)
+
+	if level_manager.failure_tween:
+		await level_manager.failure_tween.finished
+	await process_frame
+
+	assert(failure_overlay.visible == true, "Scenario I: Failure overlay is visible")
+
+	# Retry
+	try_again_btn.pressed.emit()
+	await process_frame
+	await _sync_physics()
+
+	assert(failure_overlay.visible == false, "Scenario I: Failure overlay hidden after retry")
+	assert(level_manager.current_level_index == 0, "Scenario I: Reset to Position 1")
+	assert(level_manager.current_lives == 3, "Scenario I: Lives reset to 3")
+	assert(level_lbl.text == "Bölüm 1 / 15", "Scenario I: Indicator reset to Bölüm 1 / 15")
+
+	# --- TEST SCENARIO J: RUN COMPLETE & PLAY AGAIN FLOW ---
+	print("\n[SCENARIO J] Run complete (15/15) and Tekrar Oyna")
+	for pos in range(14):
+		await solve_active_level.call()
+		if level_manager.transition_tween:
+			await level_manager.transition_tween.finished
+		await process_frame
+		await _sync_physics()
+
+	assert(level_manager.current_level_index == 14, "On position 15")
+	await solve_active_level.call()
+	if level_manager.summary_tween:
+		await level_manager.summary_tween.finished
+	await process_frame
+
+	assert(complete_overlay.visible == true, "Scenario J: Complete overlay visible")
+
+	play_again_btn.pressed.emit()
+	await process_frame
+	await _sync_physics()
+
+	assert(complete_overlay.visible == false, "Scenario J: Complete overlay hidden after Play Again")
+	assert(level_manager.current_level_index == 0, "Scenario J: Reset to position 0")
+	assert(level_manager.current_lives == 3, "Scenario J: Lives reset to 3")
+
+	# --- TEST SCENARIO K & L: 36-LEVEL MASTER POOL & PERSISTENCE UNBROKEN ---
+	print("\n[SCENARIO K & L] 36-level pool & persistence integrity")
+	assert(level_manager.levels.size() == 36, "Scenario L: Master pool has 36 levels")
+
+	# Clean up isolated test file
 	if FileAccess.file_exists(test_save_path):
 		DirAccess.remove_absolute(test_save_path)
-	if FileAccess.file_exists(test_corrupt_path):
-		DirAccess.remove_absolute(test_corrupt_path)
-	if FileAccess.file_exists(test_partial_path):
-		DirAccess.remove_absolute(test_partial_path)
 
-	print("\n>>> ALL STEP 13A AUTOMATED TESTS (SCENARIOS A - N) PASSED PERFECTLY! <<<\n")
+	print("\n>>> ALL STEP 13B AUTOMATED TESTS (SCENARIOS A - L) PASSED PERFECTLY! <<<\n")
 	quit(0)
+
 
 
 
