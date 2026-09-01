@@ -18,6 +18,7 @@ signal level_reset
 @export var math_container: Node2D
 @export var math_target_zone: Area2D
 @export var prompt_label: Label
+@export var onboarding_hint_label: Label
 @export var success_label: Label
 @export var level_indicator_label: Label
 @export var lives_label: Label
@@ -55,6 +56,7 @@ var current_level_data: LevelData = null
 var is_completed: bool = false
 var is_run_completed: bool = false
 var is_run_failed: bool = false
+var is_onboarding_active: bool = false
 var current_lives: int = 3
 var current_streak: int = 0
 var best_streak_this_run: int = 0
@@ -68,6 +70,7 @@ var lives_tween: Tween = null
 var transition_tween: Tween = null
 var summary_tween: Tween = null
 var failure_tween: Tween = null
+var tutorial_pulse_tween: Tween = null
 
 # Active runtime piece references
 var math_pieces: Array[DraggablePiece] = []
@@ -180,7 +183,35 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 		if not prev_t3_levels.has(lvl): t3_fresh += 1
 
 	# Sample 5 distinct levels without replacement for each tier with cooldown, anti-clump & tier-start anti-repeat
-	var sampled_t1: Array[LevelData] = _sample_tier_with_cooldown(tier1_pool, prev_t1_levels, 5, prev_t1_start, 1, rng)
+	var is_first_time: bool = (save_manager != null and not save_manager.get_tutorial_completed())
+	var sampled_t1: Array[LevelData] = []
+
+	if is_first_time:
+		# Find preferred onboarding level (level_01.tres or simplest Tier 1 MATH_MATCH)
+		var onboarding_level: LevelData = null
+		for lvl in tier1_pool:
+			if lvl.puzzle_type == LevelData.PuzzleType.MATH_MATCH and (lvl.resource_path.ends_with("level_01.tres") or lvl.prompt_text == "1 + 2 = ?"):
+				onboarding_level = lvl
+				break
+		if not onboarding_level:
+			for lvl in tier1_pool:
+				if lvl.puzzle_type == LevelData.PuzzleType.MATH_MATCH:
+					onboarding_level = lvl
+					break
+		if not onboarding_level and not tier1_pool.is_empty():
+			onboarding_level = tier1_pool[0]
+
+		var remaining_t1: Array[LevelData] = []
+		for lvl in tier1_pool:
+			if lvl != onboarding_level:
+				remaining_t1.append(lvl)
+
+		var rest_t1: Array[LevelData] = _sample_tier_with_cooldown(remaining_t1, prev_t1_levels, 4, null, 1, rng)
+		sampled_t1.append(onboarding_level)
+		sampled_t1.append_array(rest_t1)
+	else:
+		sampled_t1 = _sample_tier_with_cooldown(tier1_pool, prev_t1_levels, 5, prev_t1_start, 1, rng)
+
 	var sampled_t2: Array[LevelData] = _sample_tier_with_cooldown(tier2_pool, prev_t2_levels, 5, prev_t2_start, 2, rng)
 	var sampled_t3: Array[LevelData] = _sample_tier_with_cooldown(tier3_pool, prev_t3_levels, 5, prev_t3_start, 3, rng)
 
@@ -435,6 +466,22 @@ func load_level(index: int) -> void:
 	if level_indicator_label:
 		level_indicator_label.text = "Bölüm %d / %d" % [current_level_index + 1, current_run_levels.size()]
 
+	# Onboarding state: active only if tutorial not completed AND on index 0
+	var is_tutorial_pending: bool = (save_manager != null and not save_manager.get_tutorial_completed())
+	is_onboarding_active = is_tutorial_pending and (current_level_index == 0)
+
+	_kill_tutorial_pulse()
+
+	if onboarding_hint_label:
+		if is_onboarding_active:
+			onboarding_hint_label.visible = true
+			onboarding_hint_label.text = "Sürükle ve doğru yere bırak"
+			onboarding_hint_label.modulate.a = 0.0
+			var hint_fade := create_tween()
+			hint_fade.tween_property(onboarding_hint_label, "modulate:a", 1.0, 0.25)
+		else:
+			onboarding_hint_label.visible = false
+
 	# Update streak & lives display
 	_update_streak_ui(false)
 	_update_lives_ui(false)
@@ -473,10 +520,13 @@ func load_level(index: int) -> void:
 
 
 func _cleanup_current_pieces() -> void:
+	_kill_tutorial_pulse()
 	for piece in math_pieces:
 		if is_instance_valid(piece):
 			if piece.piece_dropped.is_connected(_on_math_piece_dropped):
 				piece.piece_dropped.disconnect(_on_math_piece_dropped)
+			if piece.drag_started.is_connected(_on_piece_drag_started):
+				piece.drag_started.disconnect(_on_piece_drag_started)
 			piece.disable_drag()
 			piece.visible = false
 			piece.queue_free()
@@ -538,7 +588,11 @@ func _setup_math_level() -> void:
 
 		piece.set_origin_position(spawn_pos)
 		piece.piece_dropped.connect(_on_math_piece_dropped)
+		piece.drag_started.connect(_on_piece_drag_started)
 		math_pieces.append(piece)
+
+	if is_onboarding_active:
+		_start_tutorial_pulse()
 
 
 func _setup_shape_level() -> void:
@@ -729,6 +783,20 @@ func _show_run_failure_overlay() -> void:
 
 func _process_math_success(correct_piece: DraggablePiece) -> void:
 	is_completed = true
+	_kill_tutorial_pulse()
+
+	if is_onboarding_active:
+		is_onboarding_active = false
+		if save_manager:
+			save_manager.set_tutorial_completed(true)
+		if onboarding_hint_label:
+			var hint_tween := create_tween()
+			hint_tween.tween_property(onboarding_hint_label, "modulate:a", 0.0, 0.2)
+			hint_tween.finished.connect(func():
+				if is_instance_valid(onboarding_hint_label):
+					onboarding_hint_label.visible = false
+			)
+
 	print("MATCH SUCCESS: Correct answer '%s' placed on Level %d!" % [correct_piece.piece_text, current_level_index + 1])
 
 	for piece in math_pieces:
@@ -738,6 +806,38 @@ func _process_math_success(correct_piece: DraggablePiece) -> void:
 	var target_pos: Vector2 = math_target_zone.global_position
 	var tween: Tween = correct_piece.play_success_feedback(target_pos, 0.32)
 	tween.finished.connect(_on_completion)
+
+
+func _start_tutorial_pulse() -> void:
+	_kill_tutorial_pulse()
+	if not is_onboarding_active or math_pieces.is_empty() or not current_level_data:
+		return
+
+	var correct_piece: DraggablePiece = null
+	for p in math_pieces:
+		if is_instance_valid(p) and p.piece_text == current_level_data.correct_answer:
+			correct_piece = p
+			break
+
+	if not correct_piece:
+		return
+
+	tutorial_pulse_tween = create_tween().set_loops()
+	tutorial_pulse_tween.tween_property(correct_piece, "scale", Vector2(1.06, 1.06), 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tutorial_pulse_tween.tween_property(correct_piece, "scale", Vector2.ONE, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _kill_tutorial_pulse() -> void:
+	if tutorial_pulse_tween and tutorial_pulse_tween.is_valid():
+		tutorial_pulse_tween.kill()
+		tutorial_pulse_tween = null
+	for p in math_pieces:
+		if is_instance_valid(p) and not p.is_dragging:
+			p.scale = Vector2.ONE
+
+
+func _on_piece_drag_started(_piece: DraggablePiece) -> void:
+	_kill_tutorial_pulse()
 
 
 func _on_completion() -> void:
@@ -962,6 +1062,8 @@ func reset_level() -> void:
 func cleanup_run() -> void:
 	print("CLEANING UP ACTIVE RUN -> RETURNING TO MAIN MENU")
 	_cancel_pending_transition()
+	_kill_tutorial_pulse()
+	is_onboarding_active = false
 
 	if label_tween and label_tween.is_valid():
 		label_tween.kill()
@@ -989,6 +1091,8 @@ func cleanup_run() -> void:
 
 	_cleanup_current_pieces()
 
+	if onboarding_hint_label:
+		onboarding_hint_label.visible = false
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 	if run_failure_overlay:

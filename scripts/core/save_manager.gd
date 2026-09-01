@@ -8,6 +8,7 @@ const DEFAULT_SAVE_PATH: String = "user://save.cfg"
 var sound_enabled: bool = true
 var haptics_enabled: bool = true
 var personal_best_streak: int = 0
+var tutorial_completed: bool = false
 
 
 func _ready() -> void:
@@ -21,6 +22,7 @@ func load_data() -> void:
 		sound_enabled = true
 		haptics_enabled = true
 		personal_best_streak = 0
+		tutorial_completed = false
 		return
 
 	var err: Error = config.load(save_path)
@@ -29,11 +31,13 @@ func load_data() -> void:
 		sound_enabled = true
 		haptics_enabled = true
 		personal_best_streak = 0
+		tutorial_completed = false
 		return
 
 	sound_enabled = bool(config.get_value("settings", "sound_enabled", true))
 	haptics_enabled = bool(config.get_value("settings", "haptics_enabled", true))
 	personal_best_streak = int(config.get_value("progress", "personal_best_streak", 0))
+	tutorial_completed = bool(config.get_value("progress", "tutorial_completed", false))
 
 
 func save_data() -> bool:
@@ -41,6 +45,7 @@ func save_data() -> bool:
 	config.set_value("settings", "sound_enabled", sound_enabled)
 	config.set_value("settings", "haptics_enabled", haptics_enabled)
 	config.set_value("progress", "personal_best_streak", personal_best_streak)
+	config.set_value("progress", "tutorial_completed", tutorial_completed)
 
 	var err: Error = config.save(save_path)
 	if err != OK:
@@ -79,3 +84,14 @@ func update_personal_best_streak(value: int) -> bool:
 		save_data()
 		return true
 	return false
+
+
+func get_tutorial_completed() -> bool:
+	return tutorial_completed
+
+
+func set_tutorial_completed(value: bool) -> void:
+	if tutorial_completed != value:
+		tutorial_completed = value
+		save_data()
+
