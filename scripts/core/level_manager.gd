@@ -29,6 +29,7 @@ signal level_reset
 @export var run_complete_overlay: Control
 @export var summary_final_streak_label: Label
 @export var summary_best_streak_label: Label
+@export var summary_session_streak_label: Label
 @export var play_again_button: Button
 
 # Run Failure UI References
@@ -36,6 +37,7 @@ signal level_reset
 @export var run_failure_overlay: Control
 @export var failure_progress_label: Label
 @export var failure_best_streak_label: Label
+@export var failure_session_streak_label: Label
 @export var try_again_button: Button
 
 # Feedback System
@@ -52,6 +54,7 @@ var is_run_failed: bool = false
 var current_lives: int = 3
 var current_streak: int = 0
 var best_streak_this_run: int = 0
+var best_streak_session: int = 0
 
 var active_tween: Tween = null
 var label_tween: Tween = null
@@ -114,6 +117,10 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 	var prev_t2_start: LevelData = null
 	var prev_t3_start: LevelData = null
 
+	var prev_t1_levels: Array[LevelData] = []
+	var prev_t2_levels: Array[LevelData] = []
+	var prev_t3_levels: Array[LevelData] = []
+
 	# Preserve previous run in memory before overwriting with the new run
 	if not current_run_levels.is_empty():
 		previous_run_levels = current_run_levels.duplicate()
@@ -122,6 +129,9 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 		prev_t1_start = previous_run_levels[0]
 		prev_t2_start = previous_run_levels[5]
 		prev_t3_start = previous_run_levels[10]
+		prev_t1_levels = previous_run_levels.slice(0, 5)
+		prev_t2_levels = previous_run_levels.slice(5, 10)
+		prev_t3_levels = previous_run_levels.slice(10, 15)
 
 	# Group master levels into tiers based on LevelData.tier property
 	var tier1_pool: Array[LevelData] = []
@@ -153,10 +163,21 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 			current_run_levels = levels.duplicate()
 			return current_run_levels
 
-	# Sample 5 distinct levels without replacement for each tier with anti-clump & tier-start anti-repeat
-	var sampled_t1: Array[LevelData] = _sample_and_shuffle_tier(tier1_pool, 5, prev_t1_start, 1, rng)
-	var sampled_t2: Array[LevelData] = _sample_and_shuffle_tier(tier2_pool, 5, prev_t2_start, 2, rng)
-	var sampled_t3: Array[LevelData] = _sample_and_shuffle_tier(tier3_pool, 5, prev_t3_start, 3, rng)
+	# Count fresh candidates for development logging
+	var t1_fresh: int = 0
+	for lvl in tier1_pool:
+		if not prev_t1_levels.has(lvl): t1_fresh += 1
+	var t2_fresh: int = 0
+	for lvl in tier2_pool:
+		if not prev_t2_levels.has(lvl): t2_fresh += 1
+	var t3_fresh: int = 0
+	for lvl in tier3_pool:
+		if not prev_t3_levels.has(lvl): t3_fresh += 1
+
+	# Sample 5 distinct levels without replacement for each tier with cooldown, anti-clump & tier-start anti-repeat
+	var sampled_t1: Array[LevelData] = _sample_tier_with_cooldown(tier1_pool, prev_t1_levels, 5, prev_t1_start, 1, rng)
+	var sampled_t2: Array[LevelData] = _sample_tier_with_cooldown(tier2_pool, prev_t2_levels, 5, prev_t2_start, 2, rng)
+	var sampled_t3: Array[LevelData] = _sample_tier_with_cooldown(tier3_pool, prev_t3_levels, 5, prev_t3_start, 3, rng)
 
 	var new_sequence: Array[LevelData] = []
 	new_sequence.append_array(sampled_t1)
@@ -164,8 +185,42 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 	new_sequence.append_array(sampled_t3)
 
 	current_run_levels = new_sequence
+
+	var overlap_count: int = 0
+	for lvl in new_sequence:
+		if previous_run_levels.has(lvl):
+			overlap_count += 1
+
+	if not previous_run_levels.is_empty():
+		print("[RUN] Previous run overlap cooldown active")
+		print("[RUN] Fresh candidates: Easy %d, Medium %d, Hard %d" % [t1_fresh, t2_fresh, t3_fresh])
+		print("[RUN] Previous overlap count in new run: %d" % overlap_count)
+
 	_log_run_sequence(sampled_t1, sampled_t2, sampled_t3, prev_t1_start, prev_t2_start, prev_t3_start)
 	return current_run_levels
+
+
+func _sample_tier_with_cooldown(tier_pool: Array[LevelData], prev_tier_levels: Array[LevelData], count: int = 5, avoid_start: LevelData = null, tier_num: int = 1, rng: RandomNumberGenerator = null) -> Array[LevelData]:
+	var fresh_pool: Array[LevelData] = []
+	for lvl in tier_pool:
+		if not prev_tier_levels.has(lvl):
+			fresh_pool.append(lvl)
+
+	var candidate_pool: Array[LevelData] = []
+	if fresh_pool.size() >= count:
+		candidate_pool = fresh_pool
+	else:
+		# Fallback: all fresh items + remaining filled from previous tier levels without duplicate
+		candidate_pool = fresh_pool.duplicate()
+		var reused: Array[LevelData] = prev_tier_levels.duplicate()
+		_shuffle_array(reused, rng)
+		for lvl in reused:
+			if candidate_pool.size() >= count:
+				break
+			if not candidate_pool.has(lvl):
+				candidate_pool.append(lvl)
+
+	return _sample_and_shuffle_tier(candidate_pool, count, avoid_start, tier_num, rng)
 
 
 func _sample_and_shuffle_tier(tier_pool: Array[LevelData], count: int = 5, avoid_start: LevelData = null, tier_num: int = 1, rng: RandomNumberGenerator = null) -> Array[LevelData]:
@@ -222,10 +277,10 @@ func _sample_and_shuffle_tier(tier_pool: Array[LevelData], count: int = 5, avoid
 	var math_items: Array[LevelData] = []
 	var shape_items: Array[LevelData] = []
 	for lvl in result:
-		if lvl.puzzle_type == LevelData.PuzzleType.MATH_MATCH:
-			math_items.append(lvl)
-		else:
+		if lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
 			shape_items.append(lvl)
+		else:
+			math_items.append(lvl)
 	_shuffle_array(math_items, rng)
 	_shuffle_array(shape_items, rng)
 
@@ -634,10 +689,11 @@ func _show_run_failure_overlay() -> void:
 	if not is_run_failed:
 		return
 
-	print("SHOWING RUN FAILURE OVERLAY - Level Reached: %d / %d, Best Streak: %d" % [
+	print("SHOWING RUN FAILURE OVERLAY - Level Reached: %d / %d, Run Best Streak: %d, Session Best Streak: %d" % [
 		current_level_index + 1,
 		current_run_levels.size(),
-		best_streak_this_run
+		best_streak_this_run,
+		best_streak_session
 	])
 
 	if prompt_label:
@@ -654,7 +710,9 @@ func _show_run_failure_overlay() -> void:
 	if failure_progress_label:
 		failure_progress_label.text = "%d / %d Bölüme Ulaştın" % [current_level_index + 1, current_run_levels.size()]
 	if failure_best_streak_label:
-		failure_best_streak_label.text = "En İyi Seri: x%d" % best_streak_this_run
+		failure_best_streak_label.text = "Bu Tur En İyi: x%d" % best_streak_this_run
+	if failure_session_streak_label:
+		failure_session_streak_label.text = "Oturum Rekoru: x%d" % best_streak_session
 
 	if run_failure_overlay:
 		run_failure_overlay.visible = true
@@ -684,9 +742,10 @@ func _on_completion() -> void:
 	if feedback_manager:
 		feedback_manager.play_level_complete()
 
-	# Increment streak and update best streak
+	# Increment streak and update best streaks
 	current_streak += 1
 	best_streak_this_run = max(best_streak_this_run, current_streak)
+	best_streak_session = max(best_streak_session, current_streak)
 	_update_streak_ui(true)
 
 	if success_label:
@@ -739,7 +798,9 @@ func _show_run_complete_overlay() -> void:
 	if not is_run_completed:
 		return
 
-	print("SHOWING RUN COMPLETE OVERLAY - Final Streak: %d, Best Streak: %d" % [current_streak, best_streak_this_run])
+	print("SHOWING RUN COMPLETE OVERLAY - Final Streak: %d, Run Best Streak: %d, Session Best Streak: %d" % [
+		current_streak, best_streak_this_run, best_streak_session
+	])
 
 	# Trigger run completion fanfare (SFX + haptic)
 	if feedback_manager:
@@ -759,7 +820,9 @@ func _show_run_complete_overlay() -> void:
 	if summary_final_streak_label:
 		summary_final_streak_label.text = "Son Seri: x%d" % current_streak
 	if summary_best_streak_label:
-		summary_best_streak_label.text = "En İyi Seri: x%d" % best_streak_this_run
+		summary_best_streak_label.text = "Bu Tur En İyi: x%d" % best_streak_this_run
+	if summary_session_streak_label:
+		summary_session_streak_label.text = "Oturum Rekoru: x%d" % best_streak_session
 
 	if run_complete_overlay:
 		run_complete_overlay.visible = true

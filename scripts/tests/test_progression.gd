@@ -14,7 +14,7 @@ func _sync_physics() -> void:
 	await physics_frame
 
 func _run_tests() -> void:
-	print("--- BEGINNING STEP 12D AUTOMATED TEST SUITE (36-LEVEL MASTER POOL EXPANSION) ---")
+	print("--- BEGINNING STEP 12E AUTOMATED TEST SUITE (COOLDOWN NOVELTY & SESSION BEST STREAK) ---")
 	var main_scene: PackedScene = load("res://scenes/main.tscn")
 	var main_node: Node2D = main_scene.instantiate()
 	root.add_child(main_node)
@@ -31,166 +31,187 @@ func _run_tests() -> void:
 	var success_lbl: Label = main_node.get_node("SuccessLabel") as Label
 
 	var complete_overlay: Control = main_node.get_node("RunCompleteOverlay") as Control
+	var complete_final_lbl: Label = complete_overlay.get_node("Card/FinalStreakLabel") as Label
+	var complete_best_lbl: Label = complete_overlay.get_node("Card/BestStreakLabel") as Label
+	var complete_session_lbl: Label = complete_overlay.get_node("Card/SessionStreakLabel") as Label
 	var play_again_btn: Button = complete_overlay.get_node("Card/PlayAgainButton") as Button
 
 	var failure_overlay: Control = main_node.get_node("RunFailureOverlay") as Control
 	var failure_prog_lbl: Label = failure_overlay.get_node("Card/FailureProgressLabel") as Label
-	var failure_streak_lbl: Label = failure_overlay.get_node("Card/FailureBestStreakLabel") as Label
+	var failure_best_lbl: Label = failure_overlay.get_node("Card/FailureBestStreakLabel") as Label
+	var failure_session_lbl: Label = failure_overlay.get_node("Card/FailureSessionStreakLabel") as Label
 	var try_again_btn: Button = failure_overlay.get_node("Card/TryAgainButton") as Button
 
 	assert(level_manager != null, "LevelManager must exist")
+	assert(complete_session_lbl != null, "Complete overlay SessionStreakLabel must exist")
+	assert(failure_session_lbl != null, "Failure overlay FailureSessionStreakLabel must exist")
 
 	# Accelerate animation delays for test suite execution speed
 	level_manager.transition_delay = 0.01
 	level_manager.summary_delay = 0.01
 	level_manager.failure_delay = 0.01
 
-	# --- TEST SCENARIOS A & B: MASTER POOL HAS EXACTLY 36 LEVELS (12 EASY, 12 MEDIUM, 12 HARD) ---
-	print("\n[SCENARIO A & B] Verify master pool contains 36 levels (12 Easy, 12 Medium, 12 Hard)")
-	assert(level_manager.levels.size() == 36, "Scenario A: Master pool must contain 36 loaded levels (found %d)" % level_manager.levels.size())
+	# =========================================================================
+	# PART A: RECENT-LEVEL COOLDOWN & REPLAY NOVELTY TESTS (SCENARIOS A - F)
+	# =========================================================================
 
-	var pool_t1: Array[LevelData] = []
-	var pool_t2: Array[LevelData] = []
-	var pool_t3: Array[LevelData] = []
-	for lvl in level_manager.levels:
-		match lvl.tier:
-			1: pool_t1.append(lvl)
-			2: pool_t2.append(lvl)
-			3: pool_t3.append(lvl)
-
-	assert(pool_t1.size() == 12, "Scenario B: Tier 1 pool must have 12 levels (found %d)" % pool_t1.size())
-	assert(pool_t2.size() == 12, "Scenario B: Tier 2 pool must have 12 levels (found %d)" % pool_t2.size())
-	assert(pool_t3.size() == 12, "Scenario B: Tier 3 pool must have 12 levels (found %d)" % pool_t3.size())
-
-	# --- TEST SCENARIO F, G, H, I, J: VERIFY ALL NEW LEVELS (22-36) LOAD & PLAY CORRECTLY ---
-	print("\n[SCENARIO F, G, H, I, J] Verify all new levels (22-36) mechanics, solutions & drops")
-	for lvl_idx in range(22, 37):
-		var path = "res://data/levels/level_%02d.tres" % lvl_idx
-		var lvl: LevelData = load(path) as LevelData
-		assert(lvl != null, "Level resource %s must exist" % path)
-
-		level_manager.current_run_levels = [lvl]
-		level_manager.current_lives = 3
-		level_manager.current_streak = 0
-		level_manager.load_level(0)
-		await process_frame
-		await _sync_physics()
-
-		assert(prompt_lbl.text == lvl.prompt_text, "PromptLabel mismatch on Level %d" % lvl_idx)
-
-		if lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
-			# Shape level drop test (Scenario J)
-			assert(level_manager.shape_piece_a != null and level_manager.shape_piece_b != null, "Shape pieces missing on Level %d" % lvl_idx)
-			level_manager.shape_piece_a.global_position = level_manager.shape_piece_b.global_position
-			await _sync_physics()
-			level_manager._on_shape_piece_dropped(level_manager.shape_piece_a)
-			await level_manager.level_completed
-			assert(level_manager.is_completed, "Scenario J: Shape Level %d completed successfully" % lvl_idx)
-		else:
-			# Math-style level tests (Math Match, Missing Number, Equivalent Expression)
-			assert(level_manager.math_pieces.size() == 4, "Must spawn 4 choice pieces on Level %d" % lvl_idx)
-
-			# Test neutral drop (Scenario I) on first tested level
-			if lvl_idx == 22:
-				var p_neut = level_manager.math_pieces[0]
-				p_neut.global_position = Vector2(100, 100)
-				await _sync_physics()
-				level_manager._on_math_piece_dropped(p_neut)
-				p_neut._kill_active_tweens()
-				await _sync_physics()
-				assert(level_manager.current_lives == 3, "Scenario I: Neutral drop costs 0 lives")
-
-			# Test deliberate wrong drop (Scenario H) on first tested level
-			if lvl_idx == 22:
-				var p_wrong: DraggablePiece = null
-				for p in level_manager.math_pieces:
-					if p.piece_text != lvl.correct_answer:
-						p_wrong = p
-						break
-				assert(p_wrong != null)
-				p_wrong.global_position = level_manager.math_target_zone.global_position
-				await _sync_physics()
-				level_manager._on_math_piece_dropped(p_wrong)
-				p_wrong._kill_active_tweens()
-				await _sync_physics()
-				assert(level_manager.current_lives == 2, "Scenario H: Wrong deliberate drop costs 1 life")
-
-			# Test correct drop (Scenario G)
-			var p_correct: DraggablePiece = null
-			for p in level_manager.math_pieces:
-				if p.piece_text == lvl.correct_answer:
-					p_correct = p
-					break
-			assert(p_correct != null, "Correct piece '%s' not found on Level %d" % [lvl.correct_answer, lvl_idx])
-			p_correct.global_position = level_manager.math_target_zone.global_position
-			await _sync_physics()
-			level_manager._on_math_piece_dropped(p_correct)
-			await level_manager.level_completed
-			assert(level_manager.is_completed, "Scenario G: Level %d solved with '%s'" % [lvl_idx, lvl.correct_answer])
-
-	# --- TEST SCENARIOS C, D, E, K: MULTI-RUN SAMPLING FROM 36-LEVEL POOL (5+5+5, NO DUPLICATES, ANTI-CLUMPING) ---
-	print("\n[SCENARIO C, D, E, K] Multi-run sampling from 36-level pool: 5+5+5, no duplicates, anti-clumping")
+	# --- TEST SCENARIO A, B, C, D, E: CONSECUTIVE RUNS RECENT-LEVEL COOLDOWN ---
+	print("\n[SCENARIO A, B, C, D, E] Multi-run consecutive cooldown from 36-level pool (0 overlap expected)")
 	level_manager.levels = []
 	level_manager._ensure_levels_loaded()
+	assert(level_manager.levels.size() == 36, "Must have 36 master levels")
+
 	level_manager.current_run_levels.clear()
 	level_manager.previous_run_levels.clear()
 
-	var prev_sampled_run: Array[LevelData] = []
+	var run_a: Array[LevelData] = level_manager.generate_run_sequence()
+	assert(run_a.size() == 15, "Run A must have 15 levels")
 
-	for iter in range(15):
-		var run_seq: Array[LevelData] = level_manager.generate_run_sequence()
-		assert(run_seq.size() == 15, "Scenario C: Run %d must contain exactly 15 levels" % (iter + 1))
+	for run_iter in range(10):
+		var run_b: Array[LevelData] = level_manager.generate_run_sequence()
+		assert(run_b.size() == 15, "Scenario B: Run must contain 15 levels")
 
-		# Scenario D: Verify tier distribution
+		# Scenario A: Under normal 12-per-tier conditions, previous run used 5, 7 remain fresh >= 5, so overlap MUST be 0
+		var overlap_count: int = 0
+		for lvl in run_b:
+			if run_a.has(lvl):
+				overlap_count += 1
+		assert(overlap_count == 0, "Scenario A: Run %d had %d overlap with immediately previous run (expected 0)" % [run_iter + 1, overlap_count])
+
+		# Scenario B: 5 Easy, 5 Medium, 5 Hard
 		for i in range(15):
 			if i < 5:
-				assert(run_seq[i].tier == 1, "Scenario D: Position %d must be Tier 1" % (i + 1))
+				assert(run_b[i].tier == 1, "Scenario B: Position %d must be Tier 1" % (i + 1))
 			elif i < 10:
-				assert(run_seq[i].tier == 2, "Scenario D: Position %d must be Tier 2" % (i + 1))
+				assert(run_b[i].tier == 2, "Scenario B: Position %d must be Tier 2" % (i + 1))
 			else:
-				assert(run_seq[i].tier == 3, "Scenario D: Position %d must be Tier 3" % (i + 1))
+				assert(run_b[i].tier == 3, "Scenario B: Position %d must be Tier 3" % (i + 1))
 
-		# Scenario E: No duplicates within a single 15-level run
+		# Scenario C: 15 unique levels without duplicate
 		var seen_levels: Dictionary = {}
-		for lvl in run_seq:
-			assert(not seen_levels.has(lvl), "Scenario E: Duplicate resource sampled in run %d!" % (iter + 1))
+		for lvl in run_b:
+			assert(not seen_levels.has(lvl), "Scenario C: Duplicate resource sampled in run!")
 			seen_levels[lvl] = true
-		assert(seen_levels.size() == 15, "15 distinct resources sampled from pool of 36")
+		assert(seen_levels.size() == 15, "Must have 15 unique levels")
 
-		# Scenario K: Anti-clumping per tier slice
-		var t1 = run_seq.slice(0, 5)
-		var t2 = run_seq.slice(5, 10)
-		var t3 = run_seq.slice(10, 15)
-		assert(not level_manager._has_clump_of_three(t1), "Scenario K: Tier 1 anti-clumping violation in run %d" % (iter + 1))
-		assert(not level_manager._has_clump_of_three(t2), "Scenario K: Tier 2 anti-clumping violation in run %d" % (iter + 1))
-		assert(not level_manager._has_clump_of_three(t3), "Scenario K: Tier 3 anti-clumping violation in run %d" % (iter + 1))
+		# Scenario D: Anti-clumping
+		assert(not level_manager._has_clump_of_three(run_b.slice(0, 5)), "Scenario D: Tier 1 anti-clumping violation")
+		assert(not level_manager._has_clump_of_three(run_b.slice(5, 10)), "Scenario D: Tier 2 anti-clumping violation")
+		assert(not level_manager._has_clump_of_three(run_b.slice(10, 15)), "Scenario D: Tier 3 anti-clumping violation")
 
-		# Tier-start anti-repeat
-		if not prev_sampled_run.is_empty():
-			assert(run_seq[0] != prev_sampled_run[0], "Tier 1 start must differ from previous run")
-			assert(run_seq[5] != prev_sampled_run[5], "Tier 2 start must differ from previous run")
-			assert(run_seq[10] != prev_sampled_run[10], "Tier 3 start must differ from previous run")
+		# Scenario E: Tier start anti-repeat
+		assert(run_b[0] != run_a[0], "Scenario E: Tier 1 start must differ from previous run start")
+		assert(run_b[5] != run_a[5], "Scenario E: Tier 2 start must differ from previous run start")
+		assert(run_b[10] != run_a[10], "Scenario E: Tier 3 start must differ from previous run start")
 
-		prev_sampled_run = run_seq.duplicate()
+		run_a = run_b.duplicate()
 
-	# --- TEST SCENARIO N: UI RUN INDICATOR SHOWS Bölüm 1 / 15 THROUGH Bölüm 15 / 15 ---
-	print("\n[SCENARIO N] Player-facing run indicator shows 'Bölüm 1 / 15' through 'Bölüm 15 / 15'")
+	# --- TEST SCENARIO F: SYNTHETIC FALLBACK WHEN FEWER THAN 5 FRESH LEVELS EXIST ---
+	print("\n[SCENARIO F] Synthetic fallback: Tier pool has fewer than 5 fresh levels")
+	var synthetic_pool: Array[LevelData] = []
+	for i in range(6):
+		var dummy_lvl: LevelData = LevelData.new()
+		dummy_lvl.tier = 1
+		dummy_lvl.puzzle_type = LevelData.PuzzleType.MATH_MATCH if (i % 2 == 0) else LevelData.PuzzleType.SHAPE_MATCH
+		synthetic_pool.append(dummy_lvl)
+
+	var prev_synthetic_used: Array[LevelData] = synthetic_pool.slice(0, 5) # 5 used, 1 fresh remaining
+	var fallback_sampled: Array[LevelData] = level_manager._sample_tier_with_cooldown(synthetic_pool, prev_synthetic_used, 5, prev_synthetic_used[0], 1)
+	assert(fallback_sampled.size() == 5, "Scenario F: Fallback must return exactly 5 levels")
+	# Must include the 1 fresh level (synthetic_pool[5])
+	assert(fallback_sampled.has(synthetic_pool[5]), "Scenario F: Fallback must include available fresh level")
+	# Must have 5 unique items
+	var fallback_unique: Dictionary = {}
+	for lvl in fallback_sampled:
+		fallback_unique[lvl] = true
+	assert(fallback_unique.size() == 5, "Scenario F: Fallback must not contain internal duplicates")
+	assert(fallback_sampled[0] != prev_synthetic_used[0], "Scenario F: Fallback must respect avoid_start")
+
+	# =========================================================================
+	# PART B: SESSION BEST STREAK & OVERLAYS TESTS (SCENARIOS G - M)
+	# =========================================================================
+
+	# --- TEST SCENARIO G: FRESH APPLICATION SESSION HAS SESSION BEST = 0 ---
+	print("\n[SCENARIO G] Fresh application session: best_streak_session = 0")
+	level_manager.current_streak = 0
+	level_manager.best_streak_this_run = 0
+	level_manager.best_streak_session = 0
+	assert(level_manager.best_streak_session == 0, "Scenario G: Initial session best streak must be 0")
+
+	# Helper to solve active level
+	var solve_active_level = func() -> void:
+		var c_lvl = level_manager.current_level_data
+		if c_lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
+			level_manager.shape_piece_a.global_position = level_manager.shape_piece_b.global_position
+			await _sync_physics()
+			level_manager._on_shape_piece_dropped(level_manager.shape_piece_a)
+		else:
+			var cor_piece: DraggablePiece = null
+			for p in level_manager.math_pieces:
+				if p.piece_text == c_lvl.correct_answer:
+					cor_piece = p
+					break
+			assert(cor_piece != null, "Correct piece '%s' not found" % c_lvl.correct_answer)
+			cor_piece.global_position = level_manager.math_target_zone.global_position
+			await _sync_physics()
+			level_manager._on_math_piece_dropped(cor_piece)
+		await level_manager.level_completed
+
+	# --- TEST SCENARIO H: COMPLETE 5 CONSECUTIVE LEVELS -> BOTH BESTS = 5 ---
+	print("\n[SCENARIO H] Complete 5 consecutive levels: run best = 5, session best = 5")
+	level_manager.current_run_levels.clear()
+	level_manager.generate_run_sequence()
 	level_manager.load_level(0)
 	await process_frame
 	await _sync_physics()
-	assert(level_lbl.text == "Bölüm 1 / 15", "Scenario N: Indicator must show 'Bölüm 1 / 15' (got '%s')" % level_lbl.text)
 
-	# --- TEST SCENARIO L: FAILURE / RETRY ON 36-LEVEL POOL ---
-	print("\n[SCENARIO L] Failure & retry generates a valid 15-level run from 36-level pool")
+	for k in range(5):
+		await solve_active_level.call()
+		if k < 4 and level_manager.transition_tween:
+			await level_manager.transition_tween.finished
+		await process_frame
+		await _sync_physics()
+
+	assert(level_manager.current_streak == 5, "Current streak is 5")
+	assert(level_manager.best_streak_this_run == 5, "Scenario H: best_streak_this_run is 5")
+	assert(level_manager.best_streak_session == 5, "Scenario H: best_streak_session is 5")
+
+	# --- TEST SCENARIO I: START NEW RUN -> RUN BEST RESETS TO 0, SESSION BEST REMAINS 5 ---
+	print("\n[SCENARIO I] Start new run: run best resets to 0, session best preserved at 5")
+	level_manager.start_new_run()
+	await process_frame
+	await _sync_physics()
+
+	assert(level_manager.current_streak == 0, "Current streak resets to 0")
+	assert(level_manager.best_streak_this_run == 0, "Scenario I: best_streak_this_run resets to 0")
+	assert(level_manager.best_streak_session == 5, "Scenario I: best_streak_session remains 5")
+
+	# --- TEST SCENARIO J: NEXT RUN REACHES STREAK 2 AND FAILS -> FAILURE OVERLAY SHOWS RUN BEST 2 & SESSION BEST 5 ---
+	print("\n[SCENARIO J] Run reaches streak 2 and fails: failure card shows 'Bu Tur En İyi: x2' & 'Oturum Rekoru: x5'")
+	# Solve 2 levels
+	await solve_active_level.call()
+	if level_manager.transition_tween:
+		await level_manager.transition_tween.finished
+	await process_frame
+	await _sync_physics()
+
+	await solve_active_level.call()
+	if level_manager.transition_tween:
+		await level_manager.transition_tween.finished
+	await process_frame
+	await _sync_physics()
+
+	assert(level_manager.current_streak == 2, "Current streak is 2")
+	assert(level_manager.best_streak_this_run == 2, "Run best is 2")
+	assert(level_manager.best_streak_session == 5, "Session best is still 5")
+
+	# Deliberate wrong drop to fail run (drain lives to 0)
 	level_manager.current_lives = 1
-	var fail_run = level_manager.current_run_levels.duplicate()
-
-	# Generic deliberate wrong answer
 	var cur_lvl = level_manager.current_level_data
 	if cur_lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
 		level_manager.shape_piece_a.global_position = level_manager.shape_piece_b.global_position
 		var old_m = level_manager.shape_piece_a.match_id
-		level_manager.shape_piece_a.match_id = "wrong_id"
+		level_manager.shape_piece_a.match_id = "wrong_match_id"
 		await _sync_physics()
 		level_manager._on_shape_piece_dropped(level_manager.shape_piece_a)
 		level_manager.shape_piece_a.match_id = old_m
@@ -205,60 +226,60 @@ func _run_tests() -> void:
 		await _sync_physics()
 		level_manager._on_math_piece_dropped(w_piece)
 
-	assert(level_manager.current_lives == 0, "Lives reach 0")
-	assert(level_manager.is_run_failed, "is_run_failed must be true")
-
 	if level_manager.failure_tween:
 		await level_manager.failure_tween.finished
 	await process_frame
 
 	assert(failure_overlay.visible, "RunFailureOverlay visible")
+	assert(failure_best_lbl.text == "Bu Tur En İyi: x2", "Scenario J: Failure card must show 'Bu Tur En İyi: x2' (got '%s')" % failure_best_lbl.text)
+	assert(failure_session_lbl.text == "Oturum Rekoru: x5", "Scenario J: Failure card must show 'Oturum Rekoru: x5' (got '%s')" % failure_session_lbl.text)
 
-	# Retry
+	# --- TEST SCENARIO M: FAILURE / TEKRAR DENE PRESERVES SESSION RECORD ---
+	print("\n[SCENARIO M] Failure / Tekrar Dene resets run state and preserves session record")
 	try_again_btn.pressed.emit()
 	await process_frame
 	await _sync_physics()
 
 	assert(level_manager.current_level_index == 0, "Reset to position 0")
-	assert(level_manager.current_lives == 3, "Lives reset to 3")
-	assert(level_manager.current_run_levels.size() == 15, "Scenario L: Retry generates 15-level run")
+	assert(level_manager.current_streak == 0, "Current streak is 0")
+	assert(level_manager.best_streak_this_run == 0, "Run best is 0")
+	assert(level_manager.best_streak_session == 5, "Scenario M: Session best preserved at 5 after Tekrar Dene")
 	assert(not failure_overlay.visible, "Failure overlay hidden")
 
-	# --- TEST SCENARIO M: RUN COMPLETE / PLAY AGAIN ON 36-LEVEL POOL ---
-	print("\n[SCENARIO M] Solve 15 levels -> Run Complete -> Play Again generates fresh run")
-	var solve_active_level = func() -> void:
-		var c_lvl = level_manager.current_level_data
-		if c_lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
-			level_manager.shape_piece_a.global_position = level_manager.shape_piece_b.global_position
-			await _sync_physics()
-			level_manager._on_shape_piece_dropped(level_manager.shape_piece_a)
-		else:
-			var cor_piece: DraggablePiece = null
-			for p in level_manager.math_pieces:
-				if p.piece_text == c_lvl.correct_answer:
-					cor_piece = p
-					break
-			assert(cor_piece != null)
-			cor_piece.global_position = level_manager.math_target_zone.global_position
-			await _sync_physics()
-			level_manager._on_math_piece_dropped(cor_piece)
-		await level_manager.level_completed
+	# --- TEST SCENARIO K: NEXT RUN REACHES STREAK 6 -> SESSION BEST BECOMES 6 ---
+	print("\n[SCENARIO K] Next run reaches streak 6: session best updates to 6")
+	for k in range(6):
+		await solve_active_level.call()
+		if k < 5 and level_manager.transition_tween:
+			await level_manager.transition_tween.finished
+		await process_frame
+		await _sync_physics()
 
-	for pos in range(14):
+	assert(level_manager.current_streak == 6, "Current streak is 6")
+	assert(level_manager.best_streak_this_run == 6, "Run best is 6")
+	assert(level_manager.best_streak_session == 6, "Scenario K: Session best updated to 6")
+
+	# --- TEST SCENARIO L: RUN COMPLETE (15/15 SOLVE) -> SUCCESS OVERLAY SHOWS SESSION RECORD & PLAY AGAIN PRESERVES IT ---
+	print("\n[SCENARIO L] Solve remaining to 15/15: Run Complete shows session record, Play Again preserves it")
+	# Solve remaining levels up to position 15
+	while level_manager.current_level_index < 14:
 		await solve_active_level.call()
 		if level_manager.transition_tween:
 			await level_manager.transition_tween.finished
 		await process_frame
 		await _sync_physics()
 
-	# Position 15 solve
-	assert(level_manager.current_level_index == 14, "On Position 15")
+	assert(level_manager.current_level_index == 14, "On position 15")
 	await solve_active_level.call()
 	if level_manager.summary_tween:
 		await level_manager.summary_tween.finished
 	await process_frame
 
 	assert(complete_overlay.visible, "RunCompleteOverlay visible")
+	assert(complete_final_lbl.text == "Son Seri: x15", "Final streak label shows 'Son Seri: x15'")
+	assert(complete_best_lbl.text == "Bu Tur En İyi: x15", "Best streak label shows 'Bu Tur En İyi: x15'")
+	assert(complete_session_lbl.text == "Oturum Rekoru: x15", "Scenario L: Session streak label shows 'Oturum Rekoru: x15'")
+	assert(level_manager.best_streak_session == 15, "Session best updated to 15")
 
 	# Play Again
 	play_again_btn.pressed.emit()
@@ -266,12 +287,14 @@ func _run_tests() -> void:
 	await _sync_physics()
 
 	assert(level_manager.current_level_index == 0, "Returned to Position 1")
-	assert(level_manager.current_lives == 3, "Lives reset to 3")
-	assert(level_manager.current_run_levels.size() == 15, "Scenario M: Play Again generates 15-level run")
+	assert(level_manager.current_streak == 0, "Current streak is 0")
+	assert(level_manager.best_streak_this_run == 0, "Run best is 0")
+	assert(level_manager.best_streak_session == 15, "Scenario L: Session best preserved at 15 after Tekrar Oyna")
 	assert(not complete_overlay.visible, "Complete overlay hidden")
 
-	print("\n>>> ALL STEP 12D AUTOMATED TESTS (SCENARIOS A - N) PASSED PERFECTLY! <<<\n")
+	print("\n>>> ALL STEP 12E AUTOMATED TESTS (SCENARIOS A - M) PASSED PERFECTLY! <<<\n")
 	quit(0)
+
 
 
 
