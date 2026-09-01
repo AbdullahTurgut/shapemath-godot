@@ -384,16 +384,27 @@ func load_level(index: int) -> void:
 
 	# Build puzzle according to type
 	match current_level_data.puzzle_type:
-		LevelData.PuzzleType.MATH_MATCH:
+		LevelData.PuzzleType.MATH_MATCH, LevelData.PuzzleType.MISSING_NUMBER:
 			_setup_math_level()
 		LevelData.PuzzleType.SHAPE_MATCH:
 			_setup_shape_level()
+
+	var puzzle_type_str: String = "MATH_MATCH"
+	match current_level_data.puzzle_type:
+		LevelData.PuzzleType.MATH_MATCH:
+			puzzle_type_str = "MATH_MATCH"
+		LevelData.PuzzleType.SHAPE_MATCH:
+			puzzle_type_str = "SHAPE_MATCH"
+		LevelData.PuzzleType.MISSING_NUMBER:
+			puzzle_type_str = "MISSING_NUMBER"
+		LevelData.PuzzleType.EQUIVALENT_EXPRESSION:
+			puzzle_type_str = "EQUIVALENT_EXPRESSION"
 
 	print("LOADED RUN LEVEL %d / %d: %s (%s) [Original: Level %d, Lives: %d, Streak: %d, Best: %d]" % [
 		current_level_index + 1,
 		current_run_levels.size(),
 		current_level_data.prompt_text,
-		"MATH_MATCH" if current_level_data.puzzle_type == LevelData.PuzzleType.MATH_MATCH else "SHAPE_MATCH",
+		puzzle_type_str,
 		_get_level_number(current_level_data),
 		current_lives,
 		current_streak,
@@ -428,6 +439,14 @@ func _setup_math_level() -> void:
 		shape_container.visible = false
 	if math_container:
 		math_container.visible = true
+
+	if math_target_zone:
+		var placeholder_lbl: Label = math_target_zone.get_node_or_null("PlaceholderLabel") as Label
+		if placeholder_lbl:
+			if not current_level_data.target_display.is_empty():
+				placeholder_lbl.text = current_level_data.target_display
+			else:
+				placeholder_lbl.text = "?"
 
 	var choices: Array[String] = current_level_data.answer_choices
 	var count: int = choices.size()
