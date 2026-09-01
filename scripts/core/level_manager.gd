@@ -43,6 +43,7 @@ signal level_reset
 @export var failure_progress_label: Label
 @export var failure_best_streak_label: Label
 @export var failure_session_streak_label: Label
+@export var failure_motivation_label: Label
 @export var try_again_button: Button
 
 # Feedback System
@@ -760,17 +761,37 @@ func _trigger_run_failure() -> void:
 	failure_tween.finished.connect(_show_run_failure_overlay)
 
 
+func _get_failure_motivation_text() -> String:
+	if record_broken_this_run:
+		return ""
+	if personal_best_at_run_start < 3:
+		return ""
+	if best_streak_this_run >= personal_best_at_run_start:
+		return ""
+
+	var gap: int = personal_best_at_run_start - best_streak_this_run
+	if gap == 1:
+		return "Rekoruna sadece 1 kaldı!"
+	elif gap == 2:
+		return "Rekoruna çok yaklaştın!"
+
+	return ""
+
+
 func _show_run_failure_overlay() -> void:
 	failure_tween = null
 	_kill_record_banner()
 	if not is_run_failed:
 		return
 
-	print("SHOWING RUN FAILURE OVERLAY - Level Reached: %d / %d, Run Best Streak: %d, Session Best Streak: %d" % [
+	var motivation_text: String = _get_failure_motivation_text()
+
+	print("SHOWING RUN FAILURE OVERLAY - Level Reached: %d / %d, Run Best Streak: %d, Session Best Streak: %d, Motivation: '%s'" % [
 		current_level_index + 1,
 		current_run_levels.size(),
 		best_streak_this_run,
-		best_streak_session
+		best_streak_session,
+		motivation_text
 	])
 
 	if record_banner:
@@ -792,6 +813,14 @@ func _show_run_failure_overlay() -> void:
 		failure_best_streak_label.text = "Bu Tur En İyi: x%d" % best_streak_this_run
 	if failure_session_streak_label:
 		failure_session_streak_label.text = "Kişisel Rekor: x%d" % personal_best_streak
+
+	if failure_motivation_label:
+		if not motivation_text.is_empty():
+			failure_motivation_label.text = motivation_text
+			failure_motivation_label.visible = true
+		else:
+			failure_motivation_label.text = ""
+			failure_motivation_label.visible = false
 
 	if run_failure_overlay:
 		run_failure_overlay.visible = true
@@ -1058,6 +1087,9 @@ func start_new_run() -> void:
 
 	if record_banner:
 		record_banner.visible = false
+	if failure_motivation_label:
+		failure_motivation_label.visible = false
+		failure_motivation_label.text = ""
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 		run_complete_overlay.modulate.a = 1.0
@@ -1098,12 +1130,13 @@ func _update_lives_ui(animate: bool = false) -> void:
 
 	if animate:
 		lives_label.pivot_offset = lives_label.size / 2.0
-		lives_label.scale = Vector2(1.25, 1.25)
+		lives_label.scale = Vector2.ONE
 		lives_label.modulate = Color(1.3, 0.4, 0.4, 1.0)
 
 		lives_tween = create_tween()
-		lives_tween.tween_property(lives_label, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		lives_tween.tween_property(lives_label, "scale", Vector2(1.18, 1.18), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		lives_tween.parallel().tween_property(lives_label, "modulate", Color.WHITE, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		lives_tween.chain().tween_property(lives_label, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	else:
 		lives_label.scale = Vector2.ONE
 		lives_label.modulate = Color.WHITE
@@ -1158,6 +1191,9 @@ func reset_level() -> void:
 
 	if record_banner:
 		record_banner.visible = false
+	if failure_motivation_label:
+		failure_motivation_label.visible = false
+		failure_motivation_label.text = ""
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 	if run_failure_overlay:
@@ -1212,6 +1248,9 @@ func cleanup_run() -> void:
 		onboarding_hint_label.visible = false
 	if record_banner:
 		record_banner.visible = false
+	if failure_motivation_label:
+		failure_motivation_label.visible = false
+		failure_motivation_label.text = ""
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 	if run_failure_overlay:
@@ -1222,6 +1261,9 @@ func cleanup_run() -> void:
 		prompt_label.visible = false
 	if streak_label:
 		streak_label.visible = false
+	if lives_label:
+		lives_label.scale = Vector2.ONE
+		lives_label.modulate = Color.WHITE
 	if next_button:
 		next_button.visible = false
 

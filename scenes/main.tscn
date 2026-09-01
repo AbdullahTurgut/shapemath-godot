@@ -524,19 +524,31 @@ text = "Kişisel Rekor: x15"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="FailureMotivationLabel" type="Label" parent="RunFailureOverlay/Card"]
+visible = false
+offset_top = 310.0
+offset_right = 540.0
+offset_bottom = 355.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.84, 0.31, 1)
+theme_override_font_sizes/font_size = 26
+text = "Rekoruna sadece 1 kaldı!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="TryAgainButton" type="Button" parent="RunFailureOverlay/Card"]
 offset_left = 120.0
-offset_top = 350.0
+offset_top = 370.0
 offset_right = 420.0
-offset_bottom = 430.0
+offset_bottom = 445.0
 theme_override_font_sizes/font_size = 30
 text = "Tekrar Dene"
 
 [node name="FailureMenuButton" type="Button" parent="RunFailureOverlay/Card"]
 offset_left = 140.0
-offset_top = 455.0
+offset_top = 465.0
 offset_right = 400.0
-offset_bottom = 530.0
+offset_bottom = 535.0
 theme_override_font_sizes/font_size = 26
 text = "Ana Menü"
 
@@ -546,7 +558,7 @@ script = ExtResource("5_save_manager")
 [node name="FeedbackManager" type="Node" parent="."]
 script = ExtResource("4_feedback_manager")
 
-[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "onboarding_hint_label", "success_label", "record_banner", "record_title_label", "record_value_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_title_label", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "try_again_button", "feedback_manager", "save_manager")]
+[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "onboarding_hint_label", "success_label", "record_banner", "record_title_label", "record_value_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_title_label", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "failure_motivation_label", "try_again_button", "feedback_manager", "save_manager")]
 script = ExtResource("2_level_manager")
 piece_scene = ExtResource("3_piece")
 shape_container = NodePath("../ShapeContainer")
@@ -572,6 +584,7 @@ run_failure_overlay = NodePath("../RunFailureOverlay")
 failure_progress_label = NodePath("../RunFailureOverlay/Card/FailureProgressLabel")
 failure_best_streak_label = NodePath("../RunFailureOverlay/Card/FailureBestStreakLabel")
 failure_session_streak_label = NodePath("../RunFailureOverlay/Card/FailureSessionStreakLabel")
+failure_motivation_label = NodePath("../RunFailureOverlay/Card/FailureMotivationLabel")
 try_again_button = NodePath("../RunFailureOverlay/Card/TryAgainButton")
 feedback_manager = NodePath("../FeedbackManager")
 save_manager = NodePath("../SaveManager")
