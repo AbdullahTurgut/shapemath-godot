@@ -46,9 +46,9 @@ vertical_alignment = 1
 
 [node name="StreakLabel" type="Label" parent="."]
 visible = false
-offset_left = 480.0
+offset_left = 440.0
 offset_top = 40.0
-offset_right = 680.0
+offset_right = 560.0
 offset_bottom = 100.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.784314, 0.27451, 1)
@@ -56,6 +56,15 @@ theme_override_font_sizes/font_size = 28
 text = "Seri x1"
 horizontal_alignment = 2
 vertical_alignment = 1
+
+[node name="InGameMenuButton" type="Button" parent="."]
+visible = false
+offset_left = 580.0
+offset_top = 35.0
+offset_right = 680.0
+offset_bottom = 95.0
+theme_override_font_sizes/font_size = 24
+text = "Menü"
 
 [node name="TitleLabel" type="Label" parent="."]
 offset_top = 110.0
@@ -237,15 +246,15 @@ color = Color(0.0627451, 0.0705882, 0.0980392, 0.88)
 [node name="Card" type="ColorRect" parent="SettingsOverlay"]
 layout_mode = 0
 offset_left = 90.0
-offset_top = 360.0
+offset_top = 340.0
 offset_right = 630.0
-offset_bottom = 880.0
+offset_bottom = 900.0
 color = Color(0.14902, 0.176471, 0.247059, 1)
 
 [node name="TitleLabel" type="Label" parent="SettingsOverlay/Card"]
-offset_top = 35.0
+offset_top = 30.0
 offset_right = 540.0
-offset_bottom = 95.0
+offset_bottom = 90.0
 theme_override_colors/font_color = Color(0.35, 0.85, 0.95, 1)
 theme_override_font_sizes/font_size = 40
 text = "Ayarlar"
@@ -254,9 +263,9 @@ vertical_alignment = 1
 
 [node name="SoundLabel" type="Label" parent="SettingsOverlay/Card"]
 offset_left = 60.0
-offset_top = 145.0
+offset_top = 130.0
 offset_right = 240.0
-offset_bottom = 215.0
+offset_bottom = 200.0
 theme_override_colors/font_color = Color(0.9, 0.92, 0.96, 1)
 theme_override_font_sizes/font_size = 30
 text = "Ses"
@@ -264,17 +273,17 @@ vertical_alignment = 1
 
 [node name="SoundToggleButton" type="Button" parent="SettingsOverlay/Card"]
 offset_left = 280.0
-offset_top = 145.0
+offset_top = 130.0
 offset_right = 480.0
-offset_bottom = 215.0
+offset_bottom = 200.0
 theme_override_font_sizes/font_size = 28
 text = "Açık"
 
 [node name="HapticsLabel" type="Label" parent="SettingsOverlay/Card"]
 offset_left = 60.0
-offset_top = 245.0
+offset_top = 225.0
 offset_right = 240.0
-offset_bottom = 315.0
+offset_bottom = 295.0
 theme_override_colors/font_color = Color(0.9, 0.92, 0.96, 1)
 theme_override_font_sizes/font_size = 30
 text = "Titreşim"
@@ -282,18 +291,27 @@ vertical_alignment = 1
 
 [node name="HapticsToggleButton" type="Button" parent="SettingsOverlay/Card"]
 offset_left = 280.0
-offset_top = 245.0
+offset_top = 225.0
 offset_right = 480.0
-offset_bottom = 315.0
+offset_bottom = 295.0
 theme_override_font_sizes/font_size = 28
 text = "Açık"
 
+[node name="ReturnToMenuButton" type="Button" parent="SettingsOverlay/Card"]
+visible = false
+offset_left = 100.0
+offset_top = 325.0
+offset_right = 440.0
+offset_bottom = 405.0
+theme_override_font_sizes/font_size = 28
+text = "Ana Menüye Dön"
+
 [node name="CloseButton" type="Button" parent="SettingsOverlay/Card"]
 offset_left = 120.0
-offset_top = 375.0
+offset_top = 430.0
 offset_right = 420.0
-offset_bottom = 465.0
-theme_override_font_sizes/font_size = 32
+offset_bottom = 510.0
+theme_override_font_sizes/font_size = 30
 text = "Kapat"
 
 [node name="RunCompleteOverlay" type="Control" parent="."]
@@ -322,13 +340,13 @@ color = Color(0.0627451, 0.0705882, 0.0980392, 0.88)
 [node name="Card" type="ColorRect" parent="RunCompleteOverlay"]
 layout_mode = 0
 offset_left = 90.0
-offset_top = 340.0
+offset_top = 320.0
 offset_right = 630.0
-offset_bottom = 900.0
+offset_bottom = 920.0
 color = Color(0.145098, 0.164706, 0.219608, 1)
 
 [node name="CardBorder" type="Line2D" parent="RunCompleteOverlay/Card"]
-points = PackedVector2Array(0, 0, 540, 0, 540, 560, 0, 560, 0, 0)
+points = PackedVector2Array(0, 0, 540, 0, 540, 600, 0, 600, 0, 0)
 width = 3.0
 default_color = Color(0.258824, 0.313726, 0.419608, 1)
 
@@ -374,11 +392,19 @@ vertical_alignment = 1
 
 [node name="PlayAgainButton" type="Button" parent="RunCompleteOverlay/Card"]
 offset_left = 120.0
-offset_top = 390.0
+offset_top = 350.0
 offset_right = 420.0
-offset_bottom = 480.0
+offset_bottom = 430.0
 theme_override_font_sizes/font_size = 30
 text = "Tekrar Oyna"
+
+[node name="CompleteMenuButton" type="Button" parent="RunCompleteOverlay/Card"]
+offset_left = 140.0
+offset_top = 455.0
+offset_right = 400.0
+offset_bottom = 530.0
+theme_override_font_sizes/font_size = 26
+text = "Ana Menü"
 
 [node name="RunFailureOverlay" type="Control" parent="."]
 visible = false
@@ -406,13 +432,13 @@ color = Color(0.0627451, 0.0705882, 0.0980392, 0.88)
 [node name="Card" type="ColorRect" parent="RunFailureOverlay"]
 layout_mode = 0
 offset_left = 90.0
-offset_top = 340.0
+offset_top = 320.0
 offset_right = 630.0
-offset_bottom = 900.0
+offset_bottom = 920.0
 color = Color(0.145098, 0.164706, 0.219608, 1)
 
 [node name="CardBorder" type="Line2D" parent="RunFailureOverlay/Card"]
-points = PackedVector2Array(0, 0, 540, 0, 540, 560, 0, 560, 0, 0)
+points = PackedVector2Array(0, 0, 540, 0, 540, 600, 0, 600, 0, 0)
 width = 3.0
 default_color = Color(0.35, 0.25, 0.3, 1)
 
@@ -458,11 +484,19 @@ vertical_alignment = 1
 
 [node name="TryAgainButton" type="Button" parent="RunFailureOverlay/Card"]
 offset_left = 120.0
-offset_top = 390.0
+offset_top = 350.0
 offset_right = 420.0
-offset_bottom = 480.0
+offset_bottom = 430.0
 theme_override_font_sizes/font_size = 30
 text = "Tekrar Dene"
+
+[node name="FailureMenuButton" type="Button" parent="RunFailureOverlay/Card"]
+offset_left = 140.0
+offset_top = 455.0
+offset_right = 400.0
+offset_bottom = 530.0
+theme_override_font_sizes/font_size = 26
+text = "Ana Menü"
 
 [node name="SaveManager" type="Node" parent="."]
 script = ExtResource("5_save_manager")

@@ -957,3 +957,48 @@ func reset_level() -> void:
 
 	load_level(current_level_index)
 	level_reset.emit()
+
+
+func cleanup_run() -> void:
+	print("CLEANING UP ACTIVE RUN -> RETURNING TO MAIN MENU")
+	_cancel_pending_transition()
+
+	if label_tween and label_tween.is_valid():
+		label_tween.kill()
+		label_tween = null
+	if streak_tween and streak_tween.is_valid():
+		streak_tween.kill()
+		streak_tween = null
+	if lives_tween and lives_tween.is_valid():
+		lives_tween.kill()
+		lives_tween = null
+
+	# Preserve current run sequence as previous history for recent-level cooldown/replay novelty
+	if not current_run_levels.is_empty():
+		previous_run_levels = current_run_levels.duplicate()
+
+	current_run_levels.clear()
+	current_level_data = null
+	current_level_index = 0
+	current_lives = max_lives
+	current_streak = 0
+	best_streak_this_run = 0
+	is_completed = false
+	is_run_completed = false
+	is_run_failed = false
+
+	_cleanup_current_pieces()
+
+	if run_complete_overlay:
+		run_complete_overlay.visible = false
+	if run_failure_overlay:
+		run_failure_overlay.visible = false
+	if success_label:
+		success_label.visible = false
+	if prompt_label:
+		prompt_label.visible = false
+	if streak_label:
+		streak_label.visible = false
+	if next_button:
+		next_button.visible = false
+

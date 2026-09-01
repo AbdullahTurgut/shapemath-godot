@@ -5,7 +5,13 @@ enum AppState {
 	PLAYING,
 }
 
+enum SettingsOrigin {
+	MAIN_MENU,
+	GAMEPLAY,
+}
+
 var current_state: AppState = AppState.MAIN_MENU
+var settings_origin: SettingsOrigin = SettingsOrigin.MAIN_MENU
 
 @onready var save_manager: SaveManager = $SaveManager
 @onready var feedback_manager: FeedbackManager = $FeedbackManager
@@ -14,13 +20,17 @@ var current_state: AppState = AppState.MAIN_MENU
 @onready var personal_best_label: Label = $MainMenu/PersonalBestLabel
 @onready var start_game_button: Button = $MainMenu/StartGameButton
 @onready var settings_button: Button = $MainMenu/SettingsButton
+@onready var in_game_menu_button: Button = $InGameMenuButton
 @onready var settings_overlay: Control = $SettingsOverlay
 @onready var sound_toggle_button: Button = $SettingsOverlay/Card/SoundToggleButton
 @onready var haptics_toggle_button: Button = $SettingsOverlay/Card/HapticsToggleButton
+@onready var settings_return_button: Button = $SettingsOverlay/Card/ReturnToMenuButton
 @onready var settings_close_button: Button = $SettingsOverlay/Card/CloseButton
 @onready var next_button: Button = $NextButton
 @onready var play_again_button: Button = $RunCompleteOverlay/Card/PlayAgainButton
+@onready var complete_menu_button: Button = $RunCompleteOverlay/Card/CompleteMenuButton
 @onready var try_again_button: Button = $RunFailureOverlay/Card/TryAgainButton
+@onready var failure_menu_button: Button = $RunFailureOverlay/Card/FailureMenuButton
 
 
 func _ready() -> void:
@@ -37,6 +47,10 @@ func _ready() -> void:
 		start_game_button.pressed.connect(start_game_from_menu)
 	if settings_button and not settings_button.pressed.is_connected(_on_settings_button_pressed):
 		settings_button.pressed.connect(_on_settings_button_pressed)
+	if in_game_menu_button and not in_game_menu_button.pressed.is_connected(_on_in_game_menu_pressed):
+		in_game_menu_button.pressed.connect(_on_in_game_menu_pressed)
+	if settings_return_button and not settings_return_button.pressed.is_connected(return_to_main_menu):
+		settings_return_button.pressed.connect(return_to_main_menu)
 	if settings_close_button and not settings_close_button.pressed.is_connected(_on_settings_close_pressed):
 		settings_close_button.pressed.connect(_on_settings_close_pressed)
 	if sound_toggle_button and not sound_toggle_button.pressed.is_connected(_on_sound_toggle_pressed):
@@ -48,8 +62,12 @@ func _ready() -> void:
 		next_button.pressed.connect(_on_next_button_pressed)
 	if play_again_button and not play_again_button.pressed.is_connected(_on_play_again_pressed) and (not level_manager or not play_again_button.pressed.is_connected(level_manager.start_new_run)):
 		play_again_button.pressed.connect(_on_play_again_pressed)
+	if complete_menu_button and not complete_menu_button.pressed.is_connected(return_to_main_menu):
+		complete_menu_button.pressed.connect(return_to_main_menu)
 	if try_again_button and not try_again_button.pressed.is_connected(_on_try_again_pressed) and (not level_manager or not try_again_button.pressed.is_connected(level_manager.start_new_run)):
 		try_again_button.pressed.connect(_on_try_again_pressed)
+	if failure_menu_button and not failure_menu_button.pressed.is_connected(return_to_main_menu):
+		failure_menu_button.pressed.connect(return_to_main_menu)
 
 	_show_main_menu()
 
@@ -77,7 +95,19 @@ func _refresh_main_menu() -> void:
 
 
 func _on_settings_button_pressed() -> void:
+	settings_origin = SettingsOrigin.MAIN_MENU
 	_refresh_settings_ui()
+	if settings_return_button:
+		settings_return_button.visible = false
+	if settings_overlay:
+		settings_overlay.visible = true
+
+
+func _on_in_game_menu_pressed() -> void:
+	settings_origin = SettingsOrigin.GAMEPLAY
+	_refresh_settings_ui()
+	if settings_return_button:
+		settings_return_button.visible = true
 	if settings_overlay:
 		settings_overlay.visible = true
 
@@ -149,6 +179,15 @@ func start_game_from_menu() -> void:
 		level_manager.start_new_run()
 
 
+func return_to_main_menu() -> void:
+	current_state = AppState.MAIN_MENU
+
+	if level_manager:
+		level_manager.cleanup_run()
+
+	_show_main_menu()
+
+
 func _set_gameplay_visible(is_vis: bool) -> void:
 	var level_lbl: Label = get_node_or_null("LevelIndicatorLabel")
 	var lives_lbl: Label = get_node_or_null("LivesLabel")
@@ -157,6 +196,7 @@ func _set_gameplay_visible(is_vis: bool) -> void:
 	var prompt_lbl: Label = get_node_or_null("PromptLabel")
 	var success_lbl: Label = get_node_or_null("SuccessLabel")
 	var next_btn: Button = get_node_or_null("NextButton")
+	var in_game_menu_btn: Button = get_node_or_null("InGameMenuButton")
 	var shape_cnt: Node2D = get_node_or_null("ShapeContainer")
 	var math_cnt: Node2D = get_node_or_null("MathContainer")
 
@@ -167,6 +207,7 @@ func _set_gameplay_visible(is_vis: bool) -> void:
 	if prompt_lbl: prompt_lbl.visible = is_vis
 	if success_lbl: success_lbl.visible = false
 	if next_btn: next_btn.visible = false
+	if in_game_menu_btn: in_game_menu_btn.visible = is_vis
 	if shape_cnt: shape_cnt.visible = is_vis
 	if math_cnt: math_cnt.visible = is_vis
 
@@ -184,6 +225,7 @@ func _on_play_again_pressed() -> void:
 func _on_try_again_pressed() -> void:
 	if level_manager and level_manager.has_method("start_new_run"):
 		level_manager.start_new_run()
+
 
 
 
