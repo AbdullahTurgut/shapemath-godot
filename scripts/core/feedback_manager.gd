@@ -7,6 +7,8 @@ const SFX_LEVEL_COMPLETE = preload("res://assets/audio/sfx_level_complete.wav")
 const SFX_RUN_COMPLETE = preload("res://assets/audio/sfx_run_complete.wav")
 
 @export var pool_size: int = 3
+@export var sound_enabled: bool = true
+@export var haptics_enabled: bool = true
 var _players: Array[AudioStreamPlayer] = []
 var _current_player_idx: int = 0
 
@@ -40,7 +42,7 @@ func _get_available_player() -> AudioStreamPlayer:
 
 
 func _play_sfx(stream: AudioStream, volume_db: float = 0.0) -> void:
-	if not stream:
+	if not sound_enabled or not stream:
 		return
 	var player: AudioStreamPlayer = _get_available_player()
 	player.stream = stream
@@ -49,8 +51,18 @@ func _play_sfx(stream: AudioStream, volume_db: float = 0.0) -> void:
 
 
 func _vibrate(duration_ms: int) -> void:
+	if not haptics_enabled:
+		return
 	Input.vibrate_handheld(duration_ms)
 	print("[FEEDBACK] Vibrate: %d ms" % duration_ms)
+
+
+func set_sound_enabled(enabled: bool) -> void:
+	sound_enabled = enabled
+
+
+func set_haptics_enabled(enabled: bool) -> void:
+	haptics_enabled = enabled
 
 
 func play_wrong() -> void:

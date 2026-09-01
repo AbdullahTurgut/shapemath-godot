@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/core/level_manager.gd" id="2_level_manager"]
 [ext_resource type="PackedScene" path="res://scenes/pieces/draggable_piece.tscn" id="3_piece"]
 [ext_resource type="Script" path="res://scripts/core/feedback_manager.gd" id="4_feedback_manager"]
+[ext_resource type="Script" path="res://scripts/core/save_manager.gd" id="5_save_manager"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_target"]
 size = Vector2(140, 140)
@@ -298,10 +299,13 @@ offset_bottom = 480.0
 theme_override_font_sizes/font_size = 30
 text = "Tekrar Dene"
 
+[node name="SaveManager" type="Node" parent="."]
+script = ExtResource("5_save_manager")
+
 [node name="FeedbackManager" type="Node" parent="."]
 script = ExtResource("4_feedback_manager")
 
-[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "success_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "try_again_button", "feedback_manager")]
+[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "success_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "try_again_button", "feedback_manager", "save_manager")]
 script = ExtResource("2_level_manager")
 piece_scene = ExtResource("3_piece")
 shape_container = NodePath("../ShapeContainer")
@@ -324,3 +328,4 @@ failure_best_streak_label = NodePath("../RunFailureOverlay/Card/FailureBestStrea
 failure_session_streak_label = NodePath("../RunFailureOverlay/Card/FailureSessionStreakLabel")
 try_again_button = NodePath("../RunFailureOverlay/Card/TryAgainButton")
 feedback_manager = NodePath("../FeedbackManager")
+save_manager = NodePath("../SaveManager")

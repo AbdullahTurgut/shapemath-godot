@@ -44,6 +44,10 @@ signal level_reset
 @export_group("Feedback")
 @export var feedback_manager: FeedbackManager
 
+# Persistence System
+@export_group("Persistence")
+@export var save_manager: SaveManager
+
 # Active Run State
 var previous_run_levels: Array[LevelData] = []
 var current_run_levels: Array[LevelData] = []
@@ -55,6 +59,7 @@ var current_lives: int = 3
 var current_streak: int = 0
 var best_streak_this_run: int = 0
 var best_streak_session: int = 0
+var personal_best_streak: int = 0
 
 var active_tween: Tween = null
 var label_tween: Tween = null
@@ -72,6 +77,9 @@ var shape_piece_b: DraggablePiece = null
 
 
 func _ready() -> void:
+	if save_manager:
+		personal_best_streak = save_manager.get_personal_best_streak()
+
 	current_lives = max_lives
 	current_streak = 0
 	best_streak_this_run = 0
@@ -746,6 +754,10 @@ func _on_completion() -> void:
 	current_streak += 1
 	best_streak_this_run = max(best_streak_this_run, current_streak)
 	best_streak_session = max(best_streak_session, current_streak)
+	if current_streak > personal_best_streak:
+		personal_best_streak = current_streak
+		if save_manager:
+			save_manager.update_personal_best_streak(personal_best_streak)
 	_update_streak_ui(true)
 
 	if success_label:

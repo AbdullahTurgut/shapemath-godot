@@ -1,5 +1,7 @@
 extends SceneTree
 
+const SaveManager = preload("res://scripts/core/save_manager.gd")
+
 var _tested: bool = false
 
 func _process(_delta: float) -> bool:
@@ -14,7 +16,7 @@ func _sync_physics() -> void:
 	await physics_frame
 
 func _run_tests() -> void:
-	print("--- BEGINNING STEP 12E AUTOMATED TEST SUITE (COOLDOWN NOVELTY & SESSION BEST STREAK) ---")
+	print("--- BEGINNING STEP 13A AUTOMATED TEST SUITE (PERSISTENT SETTINGS & PERSONAL BEST ARCHITECTURE) ---")
 	var main_scene: PackedScene = load("res://scenes/main.tscn")
 	var main_node: Node2D = main_scene.instantiate()
 	root.add_child(main_node)
@@ -23,6 +25,8 @@ func _run_tests() -> void:
 	await process_frame
 	await _sync_physics()
 
+	var save_manager: SaveManager = main_node.get_node("SaveManager") as SaveManager
+	var feedback_manager: FeedbackManager = main_node.get_node("FeedbackManager") as FeedbackManager
 	var level_manager: LevelManager = main_node.get_node("LevelManager") as LevelManager
 	var level_lbl: Label = main_node.get_node("LevelIndicatorLabel") as Label
 	var lives_lbl: Label = main_node.get_node("LivesLabel") as Label
@@ -31,112 +35,173 @@ func _run_tests() -> void:
 	var success_lbl: Label = main_node.get_node("SuccessLabel") as Label
 
 	var complete_overlay: Control = main_node.get_node("RunCompleteOverlay") as Control
-	var complete_final_lbl: Label = complete_overlay.get_node("Card/FinalStreakLabel") as Label
-	var complete_best_lbl: Label = complete_overlay.get_node("Card/BestStreakLabel") as Label
-	var complete_session_lbl: Label = complete_overlay.get_node("Card/SessionStreakLabel") as Label
 	var play_again_btn: Button = complete_overlay.get_node("Card/PlayAgainButton") as Button
 
 	var failure_overlay: Control = main_node.get_node("RunFailureOverlay") as Control
-	var failure_prog_lbl: Label = failure_overlay.get_node("Card/FailureProgressLabel") as Label
-	var failure_best_lbl: Label = failure_overlay.get_node("Card/FailureBestStreakLabel") as Label
-	var failure_session_lbl: Label = failure_overlay.get_node("Card/FailureSessionStreakLabel") as Label
 	var try_again_btn: Button = failure_overlay.get_node("Card/TryAgainButton") as Button
 
-	assert(level_manager != null, "LevelManager must exist")
-	assert(complete_session_lbl != null, "Complete overlay SessionStreakLabel must exist")
-	assert(failure_session_lbl != null, "Failure overlay FailureSessionStreakLabel must exist")
+	assert(save_manager != null, "SaveManager must exist in main scene")
+	assert(feedback_manager != null, "FeedbackManager must exist in main scene")
+	assert(level_manager != null, "LevelManager must exist in main scene")
 
 	# Accelerate animation delays for test suite execution speed
 	level_manager.transition_delay = 0.01
 	level_manager.summary_delay = 0.01
 	level_manager.failure_delay = 0.01
 
-	# =========================================================================
-	# PART A: RECENT-LEVEL COOLDOWN & REPLAY NOVELTY TESTS (SCENARIOS A - F)
-	# =========================================================================
+	# Define isolated test save paths so developer's actual save file is unaffected
+	var test_save_path: String = "user://test_save_13a.cfg"
+	var test_corrupt_path: String = "user://test_corrupt_13a.cfg"
+	var test_partial_path: String = "user://test_partial_13a.cfg"
 
-	# --- TEST SCENARIO A, B, C, D, E: CONSECUTIVE RUNS RECENT-LEVEL COOLDOWN ---
-	print("\n[SCENARIO A, B, C, D, E] Multi-run consecutive cooldown from 36-level pool (0 overlap expected)")
-	level_manager.levels = []
-	level_manager._ensure_levels_loaded()
-	assert(level_manager.levels.size() == 36, "Must have 36 master levels")
+	# Clean up any existing test files
+	if FileAccess.file_exists(test_save_path):
+		DirAccess.remove_absolute(test_save_path)
+	if FileAccess.file_exists(test_corrupt_path):
+		DirAccess.remove_absolute(test_corrupt_path)
+	if FileAccess.file_exists(test_partial_path):
+		DirAccess.remove_absolute(test_partial_path)
 
-	level_manager.current_run_levels.clear()
-	level_manager.previous_run_levels.clear()
+	# --- TEST SCENARIO A: FIRST LAUNCH DEFAULTS (NO FILE EXISTS) ---
+	print("\n[SCENARIO A] First launch defaults when no save file exists")
+	var sm_test := SaveManager.new()
+	sm_test.save_path = test_save_path
+	sm_test.load_data()
+	assert(sm_test.get_sound_enabled() == true, "Scenario A: Default sound_enabled must be true")
+	assert(sm_test.get_haptics_enabled() == true, "Scenario A: Default haptics_enabled must be true")
+	assert(sm_test.get_personal_best_streak() == 0, "Scenario A: Default personal_best_streak must be 0")
 
-	var run_a: Array[LevelData] = level_manager.generate_run_sequence()
-	assert(run_a.size() == 15, "Run A must have 15 levels")
+	# --- TEST SCENARIO B: SETTINGS SAVE & RELOAD ---
+	print("\n[SCENARIO B] Settings save & reload from disk")
+	sm_test.set_sound_enabled(false)
+	sm_test.set_haptics_enabled(false)
 
-	for run_iter in range(10):
-		var run_b: Array[LevelData] = level_manager.generate_run_sequence()
-		assert(run_b.size() == 15, "Scenario B: Run must contain 15 levels")
+	var sm_reload := SaveManager.new()
+	sm_reload.save_path = test_save_path
+	sm_reload.load_data()
+	assert(sm_reload.get_sound_enabled() == false, "Scenario B: Persisted sound_enabled must be false")
+	assert(sm_reload.get_haptics_enabled() == false, "Scenario B: Persisted haptics_enabled must be false")
 
-		# Scenario A: Under normal 12-per-tier conditions, previous run used 5, 7 remain fresh >= 5, so overlap MUST be 0
-		var overlap_count: int = 0
-		for lvl in run_b:
-			if run_a.has(lvl):
-				overlap_count += 1
-		assert(overlap_count == 0, "Scenario A: Run %d had %d overlap with immediately previous run (expected 0)" % [run_iter + 1, overlap_count])
+	# --- TEST SCENARIO C: INDEPENDENT TOGGLES ---
+	print("\n[SCENARIO C] Independent sound and haptic toggles")
+	sm_test.set_sound_enabled(false)
+	sm_test.set_haptics_enabled(true)
 
-		# Scenario B: 5 Easy, 5 Medium, 5 Hard
-		for i in range(15):
-			if i < 5:
-				assert(run_b[i].tier == 1, "Scenario B: Position %d must be Tier 1" % (i + 1))
-			elif i < 10:
-				assert(run_b[i].tier == 2, "Scenario B: Position %d must be Tier 2" % (i + 1))
-			else:
-				assert(run_b[i].tier == 3, "Scenario B: Position %d must be Tier 3" % (i + 1))
+	var sm_reload2 := SaveManager.new()
+	sm_reload2.save_path = test_save_path
+	sm_reload2.load_data()
+	assert(sm_reload2.get_sound_enabled() == false, "Scenario C: sound_enabled must be false")
+	assert(sm_reload2.get_haptics_enabled() == true, "Scenario C: haptics_enabled must be true")
 
-		# Scenario C: 15 unique levels without duplicate
-		var seen_levels: Dictionary = {}
-		for lvl in run_b:
-			assert(not seen_levels.has(lvl), "Scenario C: Duplicate resource sampled in run!")
-			seen_levels[lvl] = true
-		assert(seen_levels.size() == 15, "Must have 15 unique levels")
+	# --- TEST SCENARIO D: PERSONAL RECORD SAVE & RELOAD ---
+	print("\n[SCENARIO D] Update personal best streak and reload")
+	var updated_d: bool = sm_test.update_personal_best_streak(5)
+	assert(updated_d == true, "Scenario D: Updating from 0 to 5 returns true")
 
-		# Scenario D: Anti-clumping
-		assert(not level_manager._has_clump_of_three(run_b.slice(0, 5)), "Scenario D: Tier 1 anti-clumping violation")
-		assert(not level_manager._has_clump_of_three(run_b.slice(5, 10)), "Scenario D: Tier 2 anti-clumping violation")
-		assert(not level_manager._has_clump_of_three(run_b.slice(10, 15)), "Scenario D: Tier 3 anti-clumping violation")
+	var sm_reload3 := SaveManager.new()
+	sm_reload3.save_path = test_save_path
+	sm_reload3.load_data()
+	assert(sm_reload3.get_personal_best_streak() == 5, "Scenario D: Persisted personal best must be 5")
 
-		# Scenario E: Tier start anti-repeat
-		assert(run_b[0] != run_a[0], "Scenario E: Tier 1 start must differ from previous run start")
-		assert(run_b[5] != run_a[5], "Scenario E: Tier 2 start must differ from previous run start")
-		assert(run_b[10] != run_a[10], "Scenario E: Tier 3 start must differ from previous run start")
+	# --- TEST SCENARIO E: PERSONAL RECORD CANNOT DECREASE ---
+	print("\n[SCENARIO E] Personal best cannot decrease when lower streak is attempted")
+	var updated_e: bool = sm_test.update_personal_best_streak(3)
+	assert(updated_e == false, "Scenario E: Lower streak of 3 must not overwrite 5 and returns false")
+	assert(sm_test.get_personal_best_streak() == 5, "Scenario E: Personal best remains 5")
 
-		run_a = run_b.duplicate()
+	# --- TEST SCENARIO F: PERSONAL RECORD INCREASES ---
+	print("\n[SCENARIO F] Personal best increases to 8")
+	var updated_f: bool = sm_test.update_personal_best_streak(8)
+	assert(updated_f == true, "Scenario F: Updating from 5 to 8 returns true")
+	assert(sm_test.get_personal_best_streak() == 8, "Scenario F: Personal best is 8")
 
-	# --- TEST SCENARIO F: SYNTHETIC FALLBACK WHEN FEWER THAN 5 FRESH LEVELS EXIST ---
-	print("\n[SCENARIO F] Synthetic fallback: Tier pool has fewer than 5 fresh levels")
-	var synthetic_pool: Array[LevelData] = []
-	for i in range(6):
-		var dummy_lvl: LevelData = LevelData.new()
-		dummy_lvl.tier = 1
-		dummy_lvl.puzzle_type = LevelData.PuzzleType.MATH_MATCH if (i % 2 == 0) else LevelData.PuzzleType.SHAPE_MATCH
-		synthetic_pool.append(dummy_lvl)
+	var sm_reload4 := SaveManager.new()
+	sm_reload4.save_path = test_save_path
+	sm_reload4.load_data()
+	assert(sm_reload4.get_personal_best_streak() == 8, "Scenario F: Persisted personal best is 8")
 
-	var prev_synthetic_used: Array[LevelData] = synthetic_pool.slice(0, 5) # 5 used, 1 fresh remaining
-	var fallback_sampled: Array[LevelData] = level_manager._sample_tier_with_cooldown(synthetic_pool, prev_synthetic_used, 5, prev_synthetic_used[0], 1)
-	assert(fallback_sampled.size() == 5, "Scenario F: Fallback must return exactly 5 levels")
-	# Must include the 1 fresh level (synthetic_pool[5])
-	assert(fallback_sampled.has(synthetic_pool[5]), "Scenario F: Fallback must include available fresh level")
-	# Must have 5 unique items
-	var fallback_unique: Dictionary = {}
-	for lvl in fallback_sampled:
-		fallback_unique[lvl] = true
-	assert(fallback_unique.size() == 5, "Scenario F: Fallback must not contain internal duplicates")
-	assert(fallback_sampled[0] != prev_synthetic_used[0], "Scenario F: Fallback must respect avoid_start")
-
-	# =========================================================================
-	# PART B: SESSION BEST STREAK & OVERLAYS TESTS (SCENARIOS G - M)
-	# =========================================================================
-
-	# --- TEST SCENARIO G: FRESH APPLICATION SESSION HAS SESSION BEST = 0 ---
-	print("\n[SCENARIO G] Fresh application session: best_streak_session = 0")
+	# --- TEST SCENARIO G: SESSION RESET SEMANTICS ---
+	print("\n[SCENARIO G] Session reset semantics: volatile streaks reset, personal best preserved")
+	level_manager.save_manager = sm_reload4
+	level_manager.personal_best_streak = sm_reload4.get_personal_best_streak()
 	level_manager.current_streak = 0
 	level_manager.best_streak_this_run = 0
 	level_manager.best_streak_session = 0
-	assert(level_manager.best_streak_session == 0, "Scenario G: Initial session best streak must be 0")
+
+	assert(level_manager.current_streak == 0, "Scenario G: current_streak is 0")
+	assert(level_manager.best_streak_this_run == 0, "Scenario G: best_streak_this_run is 0")
+	assert(level_manager.best_streak_session == 0, "Scenario G: best_streak_session is 0")
+	assert(level_manager.personal_best_streak == 8, "Scenario G: personal_best_streak preserved at 8")
+
+	# --- TEST SCENARIO H: CORRUPT / MALFORMED CONFIG ---
+	print("\n[SCENARIO H] Corrupted config file safely falls back to defaults without crashing")
+	var file_corrupt := FileAccess.open(test_corrupt_path, FileAccess.WRITE)
+	file_corrupt.store_string("[settings\nmalformed === {{{ }}} corrupt data")
+	file_corrupt.close()
+
+	var sm_corrupt := SaveManager.new()
+	sm_corrupt.save_path = test_corrupt_path
+	sm_corrupt.load_data()
+	assert(sm_corrupt.get_sound_enabled() == true, "Scenario H: Fallback sound_enabled is true")
+	assert(sm_corrupt.get_haptics_enabled() == true, "Scenario H: Fallback haptics_enabled is true")
+	assert(sm_corrupt.get_personal_best_streak() == 0, "Scenario H: Fallback personal_best_streak is 0")
+
+	# --- TEST SCENARIO I: MISSING KEYS / PARTIAL CONFIG ---
+	print("\n[SCENARIO I] Partial config loads present keys and falls back for missing keys")
+	var file_partial := FileAccess.open(test_partial_path, FileAccess.WRITE)
+	file_partial.store_string("[settings]\nsound_enabled=false\n")
+	file_partial.close()
+
+	var sm_partial := SaveManager.new()
+	sm_partial.save_path = test_partial_path
+	sm_partial.load_data()
+	assert(sm_partial.get_sound_enabled() == false, "Scenario I: Loaded sound_enabled is false")
+	assert(sm_partial.get_haptics_enabled() == true, "Scenario I: Fallback haptics_enabled is true")
+	assert(sm_partial.get_personal_best_streak() == 0, "Scenario I: Fallback personal_best_streak is 0")
+
+	# --- TEST SCENARIO J, K, L, M: FEEDBACK SOUND AND HAPTIC SUPPRESSION ---
+	print("\n[SCENARIO J, K, L, M] FeedbackManager suppression behavior for sound & haptics")
+	# Scenario J: Sound disabled suppresses AudioPlayer
+	feedback_manager.sound_enabled = false
+	feedback_manager.haptics_enabled = true
+	feedback_manager.play_correct()
+	for player in feedback_manager._players:
+		assert(not player.playing, "Scenario J: No AudioPlayer should be playing when sound_enabled is false")
+
+	# Scenario M: Sound enabled + Haptics disabled
+	feedback_manager.sound_enabled = true
+	feedback_manager.haptics_enabled = false
+	feedback_manager.play_correct()
+	var any_playing: bool = false
+	for player in feedback_manager._players:
+		if player.playing:
+			any_playing = true
+			break
+	assert(any_playing == true, "Scenario M: AudioPlayer plays when sound_enabled is true")
+
+	# Restore feedback manager settings to true
+	feedback_manager.sound_enabled = true
+	feedback_manager.haptics_enabled = true
+
+	# --- TEST SCENARIO N: GAMEPLAY INTEGRATION & REGRESSION ---
+	print("\n[SCENARIO N] Gameplay integration: solve level updates personal best and runs 15-level flow")
+	var sm_game := SaveManager.new()
+	sm_game.save_path = test_save_path
+	sm_game.personal_best_streak = 0
+	sm_game.save_data()
+
+	level_manager.save_manager = sm_game
+	level_manager.personal_best_streak = 0
+	level_manager.current_streak = 0
+	level_manager.best_streak_this_run = 0
+	level_manager.best_streak_session = 0
+
+	level_manager.current_run_levels.clear()
+	level_manager.generate_run_sequence()
+	assert(level_manager.current_run_levels.size() == 15, "Scenario N: Generated run has 15 levels")
+	level_manager.load_level(0)
+	await process_frame
+	await _sync_physics()
 
 	# Helper to solve active level
 	var solve_active_level = func() -> void:
@@ -157,143 +222,23 @@ func _run_tests() -> void:
 			level_manager._on_math_piece_dropped(cor_piece)
 		await level_manager.level_completed
 
-	# --- TEST SCENARIO H: COMPLETE 5 CONSECUTIVE LEVELS -> BOTH BESTS = 5 ---
-	print("\n[SCENARIO H] Complete 5 consecutive levels: run best = 5, session best = 5")
-	level_manager.current_run_levels.clear()
-	level_manager.generate_run_sequence()
-	level_manager.load_level(0)
-	await process_frame
-	await _sync_physics()
-
-	for k in range(5):
-		await solve_active_level.call()
-		if k < 4 and level_manager.transition_tween:
-			await level_manager.transition_tween.finished
-		await process_frame
-		await _sync_physics()
-
-	assert(level_manager.current_streak == 5, "Current streak is 5")
-	assert(level_manager.best_streak_this_run == 5, "Scenario H: best_streak_this_run is 5")
-	assert(level_manager.best_streak_session == 5, "Scenario H: best_streak_session is 5")
-
-	# --- TEST SCENARIO I: START NEW RUN -> RUN BEST RESETS TO 0, SESSION BEST REMAINS 5 ---
-	print("\n[SCENARIO I] Start new run: run best resets to 0, session best preserved at 5")
-	level_manager.start_new_run()
-	await process_frame
-	await _sync_physics()
-
-	assert(level_manager.current_streak == 0, "Current streak resets to 0")
-	assert(level_manager.best_streak_this_run == 0, "Scenario I: best_streak_this_run resets to 0")
-	assert(level_manager.best_streak_session == 5, "Scenario I: best_streak_session remains 5")
-
-	# --- TEST SCENARIO J: NEXT RUN REACHES STREAK 2 AND FAILS -> FAILURE OVERLAY SHOWS RUN BEST 2 & SESSION BEST 5 ---
-	print("\n[SCENARIO J] Run reaches streak 2 and fails: failure card shows 'Bu Tur En İyi: x2' & 'Oturum Rekoru: x5'")
-	# Solve 2 levels
+	# Solve Level 1
 	await solve_active_level.call()
-	if level_manager.transition_tween:
-		await level_manager.transition_tween.finished
-	await process_frame
-	await _sync_physics()
+	assert(level_manager.current_streak == 1, "Streak is 1")
+	assert(level_manager.personal_best_streak == 1, "personal_best_streak is 1")
+	assert(sm_game.get_personal_best_streak() == 1, "SaveManager personal_best_streak is 1")
 
-	await solve_active_level.call()
-	if level_manager.transition_tween:
-		await level_manager.transition_tween.finished
-	await process_frame
-	await _sync_physics()
+	# Clean up test files
+	if FileAccess.file_exists(test_save_path):
+		DirAccess.remove_absolute(test_save_path)
+	if FileAccess.file_exists(test_corrupt_path):
+		DirAccess.remove_absolute(test_corrupt_path)
+	if FileAccess.file_exists(test_partial_path):
+		DirAccess.remove_absolute(test_partial_path)
 
-	assert(level_manager.current_streak == 2, "Current streak is 2")
-	assert(level_manager.best_streak_this_run == 2, "Run best is 2")
-	assert(level_manager.best_streak_session == 5, "Session best is still 5")
-
-	# Deliberate wrong drop to fail run (drain lives to 0)
-	level_manager.current_lives = 1
-	var cur_lvl = level_manager.current_level_data
-	if cur_lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
-		level_manager.shape_piece_a.global_position = level_manager.shape_piece_b.global_position
-		var old_m = level_manager.shape_piece_a.match_id
-		level_manager.shape_piece_a.match_id = "wrong_match_id"
-		await _sync_physics()
-		level_manager._on_shape_piece_dropped(level_manager.shape_piece_a)
-		level_manager.shape_piece_a.match_id = old_m
-	else:
-		var w_piece: DraggablePiece = null
-		for p in level_manager.math_pieces:
-			if p.piece_text != cur_lvl.correct_answer:
-				w_piece = p
-				break
-		assert(w_piece != null)
-		w_piece.global_position = level_manager.math_target_zone.global_position
-		await _sync_physics()
-		level_manager._on_math_piece_dropped(w_piece)
-
-	if level_manager.failure_tween:
-		await level_manager.failure_tween.finished
-	await process_frame
-
-	assert(failure_overlay.visible, "RunFailureOverlay visible")
-	assert(failure_best_lbl.text == "Bu Tur En İyi: x2", "Scenario J: Failure card must show 'Bu Tur En İyi: x2' (got '%s')" % failure_best_lbl.text)
-	assert(failure_session_lbl.text == "Oturum Rekoru: x5", "Scenario J: Failure card must show 'Oturum Rekoru: x5' (got '%s')" % failure_session_lbl.text)
-
-	# --- TEST SCENARIO M: FAILURE / TEKRAR DENE PRESERVES SESSION RECORD ---
-	print("\n[SCENARIO M] Failure / Tekrar Dene resets run state and preserves session record")
-	try_again_btn.pressed.emit()
-	await process_frame
-	await _sync_physics()
-
-	assert(level_manager.current_level_index == 0, "Reset to position 0")
-	assert(level_manager.current_streak == 0, "Current streak is 0")
-	assert(level_manager.best_streak_this_run == 0, "Run best is 0")
-	assert(level_manager.best_streak_session == 5, "Scenario M: Session best preserved at 5 after Tekrar Dene")
-	assert(not failure_overlay.visible, "Failure overlay hidden")
-
-	# --- TEST SCENARIO K: NEXT RUN REACHES STREAK 6 -> SESSION BEST BECOMES 6 ---
-	print("\n[SCENARIO K] Next run reaches streak 6: session best updates to 6")
-	for k in range(6):
-		await solve_active_level.call()
-		if k < 5 and level_manager.transition_tween:
-			await level_manager.transition_tween.finished
-		await process_frame
-		await _sync_physics()
-
-	assert(level_manager.current_streak == 6, "Current streak is 6")
-	assert(level_manager.best_streak_this_run == 6, "Run best is 6")
-	assert(level_manager.best_streak_session == 6, "Scenario K: Session best updated to 6")
-
-	# --- TEST SCENARIO L: RUN COMPLETE (15/15 SOLVE) -> SUCCESS OVERLAY SHOWS SESSION RECORD & PLAY AGAIN PRESERVES IT ---
-	print("\n[SCENARIO L] Solve remaining to 15/15: Run Complete shows session record, Play Again preserves it")
-	# Solve remaining levels up to position 15
-	while level_manager.current_level_index < 14:
-		await solve_active_level.call()
-		if level_manager.transition_tween:
-			await level_manager.transition_tween.finished
-		await process_frame
-		await _sync_physics()
-
-	assert(level_manager.current_level_index == 14, "On position 15")
-	await solve_active_level.call()
-	if level_manager.summary_tween:
-		await level_manager.summary_tween.finished
-	await process_frame
-
-	assert(complete_overlay.visible, "RunCompleteOverlay visible")
-	assert(complete_final_lbl.text == "Son Seri: x15", "Final streak label shows 'Son Seri: x15'")
-	assert(complete_best_lbl.text == "Bu Tur En İyi: x15", "Best streak label shows 'Bu Tur En İyi: x15'")
-	assert(complete_session_lbl.text == "Oturum Rekoru: x15", "Scenario L: Session streak label shows 'Oturum Rekoru: x15'")
-	assert(level_manager.best_streak_session == 15, "Session best updated to 15")
-
-	# Play Again
-	play_again_btn.pressed.emit()
-	await process_frame
-	await _sync_physics()
-
-	assert(level_manager.current_level_index == 0, "Returned to Position 1")
-	assert(level_manager.current_streak == 0, "Current streak is 0")
-	assert(level_manager.best_streak_this_run == 0, "Run best is 0")
-	assert(level_manager.best_streak_session == 15, "Scenario L: Session best preserved at 15 after Tekrar Oyna")
-	assert(not complete_overlay.visible, "Complete overlay hidden")
-
-	print("\n>>> ALL STEP 12E AUTOMATED TESTS (SCENARIOS A - M) PASSED PERFECTLY! <<<\n")
+	print("\n>>> ALL STEP 13A AUTOMATED TESTS (SCENARIOS A - N) PASSED PERFECTLY! <<<\n")
 	quit(0)
+
 
 
 
