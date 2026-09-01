@@ -166,9 +166,9 @@ color = Color(0.28, 0.2, 0.38, 0.3)
 polygon = PackedVector2Array(100, 880, 220, 920, 180, 1040, 60, 1000)
 
 [node name="TitleLabel" type="Label" parent="MainMenu"]
-offset_top = 320.0
+offset_top = 300.0
 offset_right = 720.0
-offset_bottom = 420.0
+offset_bottom = 400.0
 theme_override_colors/font_color = Color(0.35, 0.85, 0.95, 1)
 theme_override_font_sizes/font_size = 64
 text = "ShapeMath"
@@ -176,9 +176,9 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="SubtitleLabel" type="Label" parent="MainMenu"]
-offset_top = 415.0
+offset_top = 395.0
 offset_right = 720.0
-offset_bottom = 465.0
+offset_bottom = 445.0
 theme_override_colors/font_color = Color(0.55, 0.62, 0.75, 1)
 theme_override_font_sizes/font_size = 26
 text = "Matematik & Şekil Bulmacaları"
@@ -186,9 +186,9 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="PersonalBestLabel" type="Label" parent="MainMenu"]
-offset_top = 540.0
+offset_top = 500.0
 offset_right = 720.0
-offset_bottom = 600.0
+offset_bottom = 560.0
 theme_override_colors/font_color = Color(1, 0.8, 0.28, 1)
 theme_override_font_sizes/font_size = 32
 text = "Kişisel Rekor: x0"
@@ -197,11 +197,104 @@ vertical_alignment = 1
 
 [node name="StartGameButton" type="Button" parent="MainMenu"]
 offset_left = 160.0
-offset_top = 660.0
+offset_top = 620.0
 offset_right = 560.0
-offset_bottom = 760.0
+offset_bottom = 720.0
 theme_override_font_sizes/font_size = 36
 text = "Oyuna Başla"
+
+[node name="SettingsButton" type="Button" parent="MainMenu"]
+offset_left = 200.0
+offset_top = 750.0
+offset_right = 520.0
+offset_bottom = 830.0
+theme_override_font_sizes/font_size = 28
+text = "Ayarlar"
+
+[node name="SettingsOverlay" type="Control" parent="."]
+visible = false
+z_index = 25
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 720.0
+offset_bottom = 1280.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DimBackground" type="ColorRect" parent="SettingsOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 720.0
+offset_bottom = 1280.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0627451, 0.0705882, 0.0980392, 0.88)
+
+[node name="Card" type="ColorRect" parent="SettingsOverlay"]
+layout_mode = 0
+offset_left = 90.0
+offset_top = 360.0
+offset_right = 630.0
+offset_bottom = 880.0
+color = Color(0.14902, 0.176471, 0.247059, 1)
+
+[node name="TitleLabel" type="Label" parent="SettingsOverlay/Card"]
+offset_top = 35.0
+offset_right = 540.0
+offset_bottom = 95.0
+theme_override_colors/font_color = Color(0.35, 0.85, 0.95, 1)
+theme_override_font_sizes/font_size = 40
+text = "Ayarlar"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SoundLabel" type="Label" parent="SettingsOverlay/Card"]
+offset_left = 60.0
+offset_top = 145.0
+offset_right = 240.0
+offset_bottom = 215.0
+theme_override_colors/font_color = Color(0.9, 0.92, 0.96, 1)
+theme_override_font_sizes/font_size = 30
+text = "Ses"
+vertical_alignment = 1
+
+[node name="SoundToggleButton" type="Button" parent="SettingsOverlay/Card"]
+offset_left = 280.0
+offset_top = 145.0
+offset_right = 480.0
+offset_bottom = 215.0
+theme_override_font_sizes/font_size = 28
+text = "Açık"
+
+[node name="HapticsLabel" type="Label" parent="SettingsOverlay/Card"]
+offset_left = 60.0
+offset_top = 245.0
+offset_right = 240.0
+offset_bottom = 315.0
+theme_override_colors/font_color = Color(0.9, 0.92, 0.96, 1)
+theme_override_font_sizes/font_size = 30
+text = "Titreşim"
+vertical_alignment = 1
+
+[node name="HapticsToggleButton" type="Button" parent="SettingsOverlay/Card"]
+offset_left = 280.0
+offset_top = 245.0
+offset_right = 480.0
+offset_bottom = 315.0
+theme_override_font_sizes/font_size = 28
+text = "Açık"
+
+[node name="CloseButton" type="Button" parent="SettingsOverlay/Card"]
+offset_left = 120.0
+offset_top = 375.0
+offset_right = 420.0
+offset_bottom = 465.0
+theme_override_font_sizes/font_size = 32
+text = "Kapat"
 
 [node name="RunCompleteOverlay" type="Control" parent="."]
 visible = false
