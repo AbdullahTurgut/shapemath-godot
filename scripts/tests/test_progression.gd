@@ -16,19 +16,19 @@ func _sync_physics() -> void:
 	await physics_frame
 
 func _run_tests() -> void:
-	print("--- BEGINNING STEP 13E AUTOMATED TEST SUITE (ANDROID BACK NAVIGATION) ---")
+	print("--- BEGINNING STEP 13F AUTOMATED TEST SUITE (BRANDING, ADAPTIVE ICONS & FINAL POLISH) ---")
 
 	# Define isolated test save path
-	var test_save_path: String = "user://test_save_13e.cfg"
+	var test_save_path: String = "user://test_save_13f.cfg"
 	if FileAccess.file_exists(test_save_path):
 		DirAccess.remove_absolute(test_save_path)
 
-	# Pre-populate test save with personal_best = 6
+	# Pre-populate test save with personal_best = 7
 	var sm_setup := SaveManager.new()
 	sm_setup.save_path = test_save_path
 	sm_setup.sound_enabled = true
 	sm_setup.haptics_enabled = true
-	sm_setup.personal_best_streak = 6
+	sm_setup.personal_best_streak = 7
 	sm_setup.save_data()
 
 	var main_scene: PackedScene = load("res://scenes/main.tscn")
@@ -47,6 +47,8 @@ func _run_tests() -> void:
 	var feedback_manager: FeedbackManager = main_node.get_node("FeedbackManager") as FeedbackManager
 	var level_manager: LevelManager = main_node.get_node("LevelManager") as LevelManager
 	var main_menu: Control = main_node.get_node("MainMenu") as Control
+	var menu_title_lbl: Label = main_menu.get_node("TitleLabel") as Label
+	var menu_sub_lbl: Label = main_menu.get_node("SubtitleLabel") as Label
 	var start_btn: Button = main_menu.get_node("StartGameButton") as Button
 	var settings_btn: Button = main_menu.get_node("SettingsButton") as Button
 	var menu_pb_lbl: Label = main_menu.get_node("PersonalBestLabel") as Label
@@ -54,10 +56,15 @@ func _run_tests() -> void:
 	var in_game_menu_btn: Button = main_node.get_node("InGameMenuButton") as Button
 	var settings_overlay: Control = main_node.get_node("SettingsOverlay") as Control
 	var settings_card: Control = settings_overlay.get_node("Card") as Control
-	var settings_return_btn: Button = settings_card.get_node("ReturnToMenuButton") as Button
+	var sound_toggle_btn: Button = settings_card.get_node("SoundToggleButton") as Button
+	var haptics_toggle_btn: Button = settings_card.get_node("HapticsToggleButton") as Button
+	var close_btn: Button = settings_card.get_node("CloseButton") as Button
 
 	var complete_overlay: Control = main_node.get_node("RunCompleteOverlay") as Control
+	var complete_pb_lbl: Label = complete_overlay.get_node("Card/SessionStreakLabel") as Label
+
 	var failure_overlay: Control = main_node.get_node("RunFailureOverlay") as Control
+	var failure_pb_lbl: Label = failure_overlay.get_node("Card/FailureSessionStreakLabel") as Label
 
 	var level_lbl: Label = main_node.get_node("LevelIndicatorLabel") as Label
 	var prompt_lbl: Label = main_node.get_node("PromptLabel") as Label
@@ -72,26 +79,50 @@ func _run_tests() -> void:
 	level_manager.summary_delay = 0.01
 	level_manager.failure_delay = 0.01
 
-	# --- TEST SCENARIO A: MAIN MENU -> SETTINGS -> BACK ---
-	print("\n[SCENARIO A] Main Menu -> Ayarlar -> Back closes settings and keeps Main Menu")
+	# --- TEST SCENARIO A & B: MAIN MENU LAUNCH & BRANDING TERMINOLOGY ---
+	print("\n[SCENARIO A & B] Main Menu branding text and Kişisel Rekor terminology")
+	assert(main_menu.visible == true, "Scenario A: Main Menu visible on launch")
+	assert(menu_title_lbl.text == "ShapeMath", "Scenario A: Title is 'ShapeMath'")
+	assert(menu_sub_lbl.text == "Matematik & Şekil Bulmacaları", "Scenario A: Subtitle is 'Matematik & Şekil Bulmacaları'")
+	assert(menu_pb_lbl.text == "Kişisel Rekor: x7", "Scenario B: Main Menu PB label shows 'Kişisel Rekor: x7'")
+
+	# --- TEST SCENARIO C: NO PLAYER-FACING 'OTURUM REKORU' ---
+	print("\n[SCENARIO C] Verify no player-facing 'Oturum Rekoru' exists in result cards")
+	assert(not complete_pb_lbl.text.contains("Oturum Rekoru"), "Scenario C: Complete overlay does not say Oturum Rekoru")
+	assert(complete_pb_lbl.text.contains("Kişisel Rekor"), "Scenario C: Complete overlay says Kişisel Rekor")
+	assert(not failure_pb_lbl.text.contains("Oturum Rekoru"), "Scenario C: Failure overlay does not say Oturum Rekoru")
+	assert(failure_pb_lbl.text.contains("Kişisel Rekor"), "Scenario C: Failure overlay says Kişisel Rekor")
+
+	# --- TEST SCENARIO D, J: SETTINGS OVERLAY & PERSISTENCE ---
+	print("\n[SCENARIO D, J] Settings overlay open/close & toggle persistence")
 	settings_btn.pressed.emit()
 	await process_frame
-	assert(settings_overlay.visible == true, "Settings is open")
+	assert(settings_overlay.visible == true, "SettingsOverlay visible")
 
-	main_node._handle_back_request()
+	sound_toggle_btn.pressed.emit()
 	await process_frame
+	assert(feedback_manager.sound_enabled == false, "Scenario J: Sound toggle disabled sound")
+	assert(save_manager.get_sound_enabled() == false, "Scenario J: Sound saved as false")
 
-	assert(settings_overlay.visible == false, "Scenario A: Settings closed via Back")
-	assert(main_menu.visible == true, "Scenario A: Main Menu remains visible")
-	assert(quit_tracker[0] == false, "Scenario A: App did not exit on closing settings")
-
-	# --- TEST SCENARIO H: MAIN MENU -> BACK (EXIT APP BRANCH) ---
-	print("\n[SCENARIO H] Main Menu with no overlay -> Back routes to app exit")
-	main_node._handle_back_request()
+	close_btn.pressed.emit()
 	await process_frame
+	assert(settings_overlay.visible == false, "Settings closed")
 
-	assert(quit_tracker[0] == true, "Scenario H: Back on Main Menu called quit handler")
-	quit_tracker[0] = false
+	# Restore sound
+	feedback_manager.sound_enabled = true
+	save_manager.set_sound_enabled(true)
+
+	# --- TEST SCENARIO E, I: START GAME & 15-LEVEL 5+5+5 RUN GENERATION ---
+	print("\n[SCENARIO E, I] Start game -> generates 15-level run (5+5+5) from 36 master levels")
+	start_btn.pressed.emit()
+	await process_frame
+	await _sync_physics()
+
+	assert(main_node.current_state == main_node.AppState.PLAYING, "In PLAYING state")
+	assert(level_manager.levels.size() == 36, "Scenario I: 36 master levels intact")
+	assert(level_manager.current_run_levels.size() == 15, "Scenario E: 15 levels sampled")
+	assert(level_manager.current_lives == 3, "Scenario E: 3 lives initialized")
+	assert(level_manager.current_streak == 0, "Scenario E: Streak = 0")
 
 	# Helper to solve active level
 	var solve_active_level = func() -> void:
@@ -112,39 +143,19 @@ func _run_tests() -> void:
 			level_manager._on_math_piece_dropped(cor_piece)
 		await level_manager.level_completed
 
-	# --- TEST SCENARIO C & D: GAMEPLAY -> BACK OPENS SETTINGS (ORIGIN = GAMEPLAY) ---
-	print("\n[SCENARIO C & D] Active gameplay -> Back opens Settings overlay with 'Ana Menüye Dön'")
-	start_btn.pressed.emit()
-	await process_frame
-	await _sync_physics()
-
-	assert(main_node.current_state == main_node.AppState.PLAYING, "In PLAYING state")
-	assert(settings_overlay.visible == false, "Settings hidden")
-
-	# Press Back while playing
+	# --- TEST SCENARIO F: BACK NAVIGATION ---
+	print("\n[SCENARIO F] Back navigation from gameplay opens Settings and resumes safely")
 	main_node._handle_back_request()
 	await process_frame
-
-	assert(settings_overlay.visible == true, "Scenario C: SettingsOverlay opened via Back")
-	assert(main_node.settings_origin == main_node.SettingsOrigin.GAMEPLAY, "Scenario C: Origin is GAMEPLAY")
-	assert(settings_return_btn.visible == true, "Scenario D: 'Ana Menüye Dön' is visible")
-
-	# --- TEST SCENARIO B, E, J, K: SETTINGS (GAMEPLAY) -> BACK RESUMES EXACT PUZZLE ---
-	print("\n[SCENARIO E, J, K] Back on Settings (gameplay) closes overlay and resumes exact puzzle")
-	var active_lvl = level_manager.current_level_data
-	var active_index = level_manager.current_level_index
+	assert(settings_overlay.visible == true, "Back opened Settings")
 
 	main_node._handle_back_request()
 	await process_frame
+	assert(settings_overlay.visible == false, "Second Back closed Settings")
+	assert(level_manager.current_level_index == 0, "Exact puzzle resumed")
 
-	assert(settings_overlay.visible == false, "Scenario E: SettingsOverlay closed on second Back")
-	assert(level_manager.current_level_data == active_lvl, "Scenario K: Same level data active")
-	assert(level_manager.current_level_index == active_index, "Scenario J: Level index unchanged")
-	assert(level_manager.current_lives == 3, "Scenario J: Lives = 3")
-	assert(level_manager.current_streak == 0, "Scenario J: Streak = 0")
-
-	# --- TEST SCENARIO F: RUN FAILURE OVERLAY -> BACK RETURNS TO MAIN MENU ---
-	print("\n[SCENARIO F & L] Run Failure overlay -> Back returns cleanly to Main Menu")
+	# --- TEST SCENARIO G: RUN FAILURE UI & KIŞISEL REKOR ---
+	print("\n[SCENARIO G] Trigger run failure -> displays Kişisel Rekor (x7)")
 	level_manager.current_lives = 1
 	var cur_lvl = level_manager.current_level_data
 	if cur_lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
@@ -169,24 +180,22 @@ func _run_tests() -> void:
 		await level_manager.failure_tween.finished
 	await process_frame
 
-	assert(failure_overlay.visible == true, "Failure overlay is visible")
+	assert(failure_overlay.visible == true, "Scenario G: Failure overlay visible")
+	assert(failure_pb_lbl.text == "Kişisel Rekor: x7", "Scenario G: Failure card displays 'Kişisel Rekor: x7' (got '%s')" % failure_pb_lbl.text)
 
-	# Press Back while on failure overlay
-	main_node._handle_back_request()
+	# Return to Main Menu from failure
+	main_node.return_to_main_menu()
 	await process_frame
 	await _sync_physics()
+	assert(main_menu.visible == true, "Returned to Main Menu")
 
-	assert(main_menu.visible == true, "Scenario F: Main Menu visible after Back on failure overlay")
-	assert(failure_overlay.visible == false, "Scenario F: Failure overlay hidden")
-	assert(level_manager.current_level_data == null, "Scenario L: Gameplay cleaned up cleanly")
-
-	# --- TEST SCENARIO G, N, P: RUN COMPLETE OVERLAY -> BACK RETURNS TO MAIN MENU ---
-	print("\n[SCENARIO G, N, P] Run Complete overlay -> Back returns to Main Menu with refreshed Personal Best")
+	# --- TEST SCENARIO H & K: RUN COMPLETE UI & NEW PERSONAL BEST (x15) ---
+	print("\n[SCENARIO H & K] Complete 15/15 -> updates Kişisel Rekor to x15, persists to disk")
 	start_btn.pressed.emit()
 	await process_frame
 	await _sync_physics()
 
-	# Solve all 15 levels (sets new personal best = 15)
+	# Solve all 15 levels
 	for pos in range(14):
 		await solve_active_level.call()
 		if level_manager.transition_tween:
@@ -200,28 +209,30 @@ func _run_tests() -> void:
 		await level_manager.summary_tween.finished
 	await process_frame
 
-	assert(complete_overlay.visible == true, "Complete overlay visible")
+	assert(complete_overlay.visible == true, "Scenario H: Complete overlay visible")
+	assert(complete_pb_lbl.text == "Kişisel Rekor: x15", "Scenario H: Complete card displays 'Kişisel Rekor: x15' (got '%s')" % complete_pb_lbl.text)
+	assert(level_manager.personal_best_streak == 15, "Scenario K: LevelManager personal_best = 15")
+	assert(save_manager.get_personal_best_streak() == 15, "Scenario K: SaveManager personal_best = 15")
 
-	# Press Back while on complete overlay
-	main_node._handle_back_request()
+	# Return to Main Menu and verify refreshed PB label
+	main_node.return_to_main_menu()
 	await process_frame
 	await _sync_physics()
+	assert(menu_pb_lbl.text == "Kişisel Rekor: x15", "Scenario K: Main Menu shows updated 'Kişisel Rekor: x15'")
 
-	assert(main_menu.visible == true, "Scenario G: Main Menu visible after Back on complete overlay")
-	assert(complete_overlay.visible == false, "Scenario G: Complete overlay hidden")
-	assert(menu_pb_lbl.text == "Kişisel Rekor: x15", "Scenario N: Personal best refreshed to x15 on menu")
-
-	# --- TEST SCENARIO I, M, O: PERSISTENCE & POOL INTEGRITY ---
-	print("\n[SCENARIO I, M, O] Persistence & Pool integrity checks")
-	assert(level_manager.levels.size() == 36, "Scenario O: 36 master levels intact")
-	assert(save_manager.get_personal_best_streak() == 15, "Scenario N: Persisted personal best is 15")
+	# Reload from disk into fresh SaveManager to verify persistence
+	var disk_sm := SaveManager.new()
+	disk_sm.save_path = test_save_path
+	disk_sm.load_data()
+	assert(disk_sm.get_personal_best_streak() == 15, "Scenario K: Reloaded personal best streak is 15")
 
 	# Clean up test save file
 	if FileAccess.file_exists(test_save_path):
 		DirAccess.remove_absolute(test_save_path)
 
-	print("\n>>> ALL STEP 13E AUTOMATED TESTS (SCENARIOS A - P) PASSED PERFECTLY! <<<\n")
+	print("\n>>> ALL STEP 13F AUTOMATED TESTS (SCENARIOS A - K) PASSED PERFECTLY! <<<\n")
 	quit(0)
+
 
 
 

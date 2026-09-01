@@ -717,7 +717,7 @@ func _show_run_failure_overlay() -> void:
 	if failure_best_streak_label:
 		failure_best_streak_label.text = "Bu Tur En İyi: x%d" % best_streak_this_run
 	if failure_session_streak_label:
-		failure_session_streak_label.text = "Oturum Rekoru: x%d" % best_streak_session
+		failure_session_streak_label.text = "Kişisel Rekor: x%d" % personal_best_streak
 
 	if run_failure_overlay:
 		run_failure_overlay.visible = true
@@ -807,8 +807,8 @@ func _show_run_complete_overlay() -> void:
 	if not is_run_completed:
 		return
 
-	print("SHOWING RUN COMPLETE OVERLAY - Final Streak: %d, Run Best Streak: %d, Session Best Streak: %d" % [
-		current_streak, best_streak_this_run, best_streak_session
+	print("SHOWING RUN COMPLETE OVERLAY - Final Streak: %d, Run Best Streak: %d, Personal Best Streak: %d" % [
+		current_streak, best_streak_this_run, personal_best_streak
 	])
 
 	# Trigger run completion fanfare (SFX + haptic)
@@ -831,7 +831,7 @@ func _show_run_complete_overlay() -> void:
 	if summary_best_streak_label:
 		summary_best_streak_label.text = "Bu Tur En İyi: x%d" % best_streak_this_run
 	if summary_session_streak_label:
-		summary_session_streak_label.text = "Oturum Rekoru: x%d" % best_streak_session
+		summary_session_streak_label.text = "Kişisel Rekor: x%d" % personal_best_streak
 
 	if run_complete_overlay:
 		run_complete_overlay.visible = true

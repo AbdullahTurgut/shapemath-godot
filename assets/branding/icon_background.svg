@@ -1,0 +1,12 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" width="432" height="432">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e222d"/>
+      <stop offset="100%" stop-color="#12151d"/>
+    </linearGradient>
+  </defs>
+  <rect width="432" height="432" fill="url(#bgGrad)"/>
+  <!-- Subtle circular grid for safe-zone aesthetic -->
+  <circle cx="216" cy="216" r="140" fill="none" stroke="#252b3b" stroke-width="2" stroke-dasharray="6 6"/>
+  <circle cx="216" cy="216" r="180" fill="none" stroke="#1d2230" stroke-width="2"/>
+</svg>
