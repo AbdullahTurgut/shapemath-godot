@@ -43,6 +43,7 @@ signal level_reset
 @export var feedback_manager: FeedbackManager
 
 # Active Run State
+var previous_run_levels: Array[LevelData] = []
 var current_run_levels: Array[LevelData] = []
 var current_level_data: LevelData = null
 var is_completed: bool = false
@@ -113,6 +114,19 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 		current_run_levels = levels.duplicate()
 		return current_run_levels
 
+	var prev_t1_start: LevelData = null
+	var prev_t2_start: LevelData = null
+	var prev_t3_start: LevelData = null
+
+	# Preserve previous run in memory before overwriting with the new run
+	if not current_run_levels.is_empty():
+		previous_run_levels = current_run_levels.duplicate()
+
+	if previous_run_levels.size() >= 15:
+		prev_t1_start = previous_run_levels[0]
+		prev_t2_start = previous_run_levels[5]
+		prev_t3_start = previous_run_levels[10]
+
 	# Group master levels into tiers based on authoring order:
 	# Tier 1 (Easy): levels 0..4 (level_01 to level_05)
 	# Tier 2 (Medium): levels 5..9 (level_06 to level_10)
@@ -129,9 +143,9 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 		else:
 			tier3.append(levels[i])
 
-	var shuffled_t1: Array[LevelData] = _shuffle_tier_with_anti_clump(tier1, rng)
-	var shuffled_t2: Array[LevelData] = _shuffle_tier_with_anti_clump(tier2, rng)
-	var shuffled_t3: Array[LevelData] = _shuffle_tier_with_anti_clump(tier3, rng)
+	var shuffled_t1: Array[LevelData] = _shuffle_tier_with_anti_clump(tier1, prev_t1_start, 1, rng)
+	var shuffled_t2: Array[LevelData] = _shuffle_tier_with_anti_clump(tier2, prev_t2_start, 2, rng)
+	var shuffled_t3: Array[LevelData] = _shuffle_tier_with_anti_clump(tier3, prev_t3_start, 3, rng)
 
 	var new_sequence: Array[LevelData] = []
 	new_sequence.append_array(shuffled_t1)
@@ -139,22 +153,40 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 	new_sequence.append_array(shuffled_t3)
 
 	current_run_levels = new_sequence
-	_log_run_sequence(shuffled_t1, shuffled_t2, shuffled_t3)
+	_log_run_sequence(shuffled_t1, shuffled_t2, shuffled_t3, prev_t1_start, prev_t2_start, prev_t3_start)
 	return current_run_levels
 
 
-func _shuffle_tier_with_anti_clump(tier: Array[LevelData], rng: RandomNumberGenerator = null) -> Array[LevelData]:
+func _shuffle_tier_with_anti_clump(tier: Array[LevelData], avoid_start: LevelData = null, tier_num: int = 1, rng: RandomNumberGenerator = null) -> Array[LevelData]:
 	var result: Array[LevelData] = tier.duplicate()
 	var attempts: int = 0
-	var max_attempts: int = 30
+	var max_attempts: int = 50
+	var had_collision: bool = false
 
 	while attempts < max_attempts:
 		attempts += 1
 		_shuffle_array(result, rng)
-		if not _has_clump_of_three(result):
-			return result
+		if _has_clump_of_three(result):
+			continue
+		if avoid_start != null and result[0] == avoid_start:
+			had_collision = true
+			continue
+		if had_collision and avoid_start != null:
+			print("[RUN] Tier %d start adjusted to avoid previous start level %d" % [tier_num, _get_level_number(avoid_start)])
+		return result
 
-	# Deterministic fallback interleave if random shuffle clumped 30 times
+	# Safe swap adjustment fallback if attempts exhausted
+	if avoid_start != null and result[0] == avoid_start:
+		for k in range(1, result.size()):
+			var candidate: Array[LevelData] = result.duplicate()
+			var temp: LevelData = candidate[0]
+			candidate[0] = candidate[k]
+			candidate[k] = temp
+			if candidate[0] != avoid_start and not _has_clump_of_three(candidate):
+				print("[RUN] Tier %d start adjusted to avoid previous start level %d" % [tier_num, _get_level_number(avoid_start)])
+				return candidate
+
+	# Deterministic fallback interleave if random shuffle clumped 50 times
 	var math_items: Array[LevelData] = []
 	var shape_items: Array[LevelData] = []
 	for lvl in tier:
@@ -175,6 +207,17 @@ func _shuffle_tier_with_anti_clump(tier: Array[LevelData], rng: RandomNumberGene
 		if s_idx < shape_items.size():
 			interleaved.append(shape_items[s_idx])
 			s_idx += 1
+
+	if avoid_start != null and interleaved[0] == avoid_start:
+		for k in range(1, interleaved.size()):
+			var candidate: Array[LevelData] = interleaved.duplicate()
+			var temp: LevelData = candidate[0]
+			candidate[0] = candidate[k]
+			candidate[k] = temp
+			if candidate[0] != avoid_start and not _has_clump_of_three(candidate):
+				print("[RUN] Tier %d start adjusted to avoid previous start level %d" % [tier_num, _get_level_number(avoid_start)])
+				return candidate
+
 	return interleaved
 
 
@@ -212,7 +255,19 @@ func _get_level_number(lvl: LevelData) -> int:
 	return -1
 
 
-func _log_run_sequence(t1: Array[LevelData], t2: Array[LevelData], t3: Array[LevelData]) -> void:
+func _log_run_sequence(t1: Array[LevelData], t2: Array[LevelData], t3: Array[LevelData], p1: LevelData = null, p2: LevelData = null, p3: LevelData = null) -> void:
+	if p1 != null and p2 != null and p3 != null:
+		print("[RUN] Previous tier starts: %d | %d | %d" % [
+			_get_level_number(p1),
+			_get_level_number(p2),
+			_get_level_number(p3)
+		])
+	elif p1 != null or p2 != null or p3 != null:
+		var p1_str: String = str(_get_level_number(p1)) if p1 else "None"
+		var p2_str: String = str(_get_level_number(p2)) if p2 else "None"
+		var p3_str: String = str(_get_level_number(p3)) if p3 else "None"
+		print("[RUN] Previous tier starts: %s | %s | %s" % [p1_str, p2_str, p3_str])
+
 	var s1: Array[String] = []
 	for lvl in t1:
 		s1.append(str(_get_level_number(lvl)))
