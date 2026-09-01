@@ -12,6 +12,7 @@ enum SettingsOrigin {
 
 var current_state: AppState = AppState.MAIN_MENU
 var settings_origin: SettingsOrigin = SettingsOrigin.MAIN_MENU
+var quit_handler: Callable = Callable()
 
 @onready var save_manager: SaveManager = $SaveManager
 @onready var feedback_manager: FeedbackManager = $FeedbackManager
@@ -27,10 +28,52 @@ var settings_origin: SettingsOrigin = SettingsOrigin.MAIN_MENU
 @onready var settings_return_button: Button = $SettingsOverlay/Card/ReturnToMenuButton
 @onready var settings_close_button: Button = $SettingsOverlay/Card/CloseButton
 @onready var next_button: Button = $NextButton
+@onready var run_complete_overlay: Control = $RunCompleteOverlay
 @onready var play_again_button: Button = $RunCompleteOverlay/Card/PlayAgainButton
 @onready var complete_menu_button: Button = $RunCompleteOverlay/Card/CompleteMenuButton
+@onready var run_failure_overlay: Control = $RunFailureOverlay
 @onready var try_again_button: Button = $RunFailureOverlay/Card/TryAgainButton
 @onready var failure_menu_button: Button = $RunFailureOverlay/Card/FailureMenuButton
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_handle_back_request()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_handle_back_request()
+
+
+func _handle_back_request() -> void:
+	# Priority 1: Settings overlay is open
+	if settings_overlay and settings_overlay.visible:
+		_on_settings_close_pressed()
+		return
+
+	# Priority 2: Run failure overlay is open
+	if run_failure_overlay and run_failure_overlay.visible:
+		return_to_main_menu()
+		return
+
+	# Priority 3: Run complete overlay is open
+	if run_complete_overlay and run_complete_overlay.visible:
+		return_to_main_menu()
+		return
+
+	# Priority 4: Active gameplay -> opens Settings overlay (origin = GAMEPLAY)
+	if current_state == AppState.PLAYING:
+		_on_in_game_menu_pressed()
+		return
+
+	# Priority 5: Main Menu -> exit app
+	if current_state == AppState.MAIN_MENU:
+		if quit_handler.is_valid():
+			quit_handler.call()
+		else:
+			get_tree().quit()
+		return
 
 
 func _ready() -> void:
