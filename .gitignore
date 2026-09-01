@@ -1,3 +1,17 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Release Signing Secrets
+*.keystore
+*.jks
+/secrets/
+*.env
+*.local
+
+# Build Artifacts
+/builds/
+*.apk
+*.aab
+*.idsig
+
