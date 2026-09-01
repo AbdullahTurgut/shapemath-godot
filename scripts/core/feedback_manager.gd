@@ -80,6 +80,11 @@ func play_level_complete() -> void:
 	_vibrate(55)
 
 
+func play_record_break() -> void:
+	_play_sfx(SFX_LEVEL_COMPLETE, 1.0)
+	_vibrate(75)
+
+
 func play_run_complete() -> void:
 	_play_sfx(SFX_RUN_COMPLETE, 1.0)
 	_vibrate(85)

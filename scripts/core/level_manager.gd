@@ -20,6 +20,9 @@ signal level_reset
 @export var prompt_label: Label
 @export var onboarding_hint_label: Label
 @export var success_label: Label
+@export var record_banner: Control
+@export var record_title_label: Label
+@export var record_value_label: Label
 @export var level_indicator_label: Label
 @export var lives_label: Label
 @export var streak_label: Label
@@ -62,6 +65,8 @@ var current_streak: int = 0
 var best_streak_this_run: int = 0
 var best_streak_session: int = 0
 var personal_best_streak: int = 0
+var personal_best_at_run_start: int = 0
+var record_broken_this_run: bool = false
 
 var active_tween: Tween = null
 var label_tween: Tween = null
@@ -71,6 +76,7 @@ var transition_tween: Tween = null
 var summary_tween: Tween = null
 var failure_tween: Tween = null
 var tutorial_pulse_tween: Tween = null
+var record_banner_tween: Tween = null
 
 # Active runtime piece references
 var math_pieces: Array[DraggablePiece] = []
@@ -82,6 +88,8 @@ var shape_piece_b: DraggablePiece = null
 func _ready() -> void:
 	if save_manager:
 		personal_best_streak = save_manager.get_personal_best_streak()
+	personal_best_at_run_start = personal_best_streak
+	record_broken_this_run = false
 
 	current_lives = max_lives
 	current_streak = 0
@@ -89,6 +97,8 @@ func _ready() -> void:
 	is_run_completed = false
 	is_run_failed = false
 
+	if record_banner:
+		record_banner.visible = false
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 	if run_failure_overlay:
@@ -434,6 +444,7 @@ func load_level(index: int) -> void:
 		return
 
 	_cancel_pending_transition()
+	_kill_record_banner()
 
 	current_level_index = index
 	current_level_data = current_run_levels[current_level_index]
@@ -449,6 +460,8 @@ func load_level(index: int) -> void:
 		label_tween = null
 
 	# Reset UI
+	if record_banner:
+		record_banner.visible = false
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 	if run_failure_overlay:
@@ -745,6 +758,7 @@ func _trigger_run_failure() -> void:
 
 func _show_run_failure_overlay() -> void:
 	failure_tween = null
+	_kill_record_banner()
 	if not is_run_failed:
 		return
 
@@ -755,6 +769,8 @@ func _show_run_failure_overlay() -> void:
 		best_streak_session
 	])
 
+	if record_banner:
+		record_banner.visible = false
 	if prompt_label:
 		prompt_label.visible = false
 	if success_label:
@@ -843,10 +859,6 @@ func _on_piece_drag_started(_piece: DraggablePiece) -> void:
 func _on_completion() -> void:
 	print("LEVEL COMPLETED: Level %d / %d" % [current_level_index + 1, current_run_levels.size()])
 
-	# Trigger level completion feedback (SFX + haptic)
-	if feedback_manager:
-		feedback_manager.play_level_complete()
-
 	# Increment streak and update best streaks
 	current_streak += 1
 	best_streak_this_run = max(best_streak_this_run, current_streak)
@@ -855,9 +867,21 @@ func _on_completion() -> void:
 		personal_best_streak = current_streak
 		if save_manager:
 			save_manager.update_personal_best_streak(personal_best_streak)
+
+	# Check if this solve is the first record break of this run (threshold: personal_best_at_run_start >= 2)
+	var triggers_celebration: bool = (personal_best_at_run_start >= 2 and current_streak > personal_best_at_run_start and not record_broken_this_run)
+	if triggers_celebration:
+		record_broken_this_run = true
+		_show_record_celebration(current_streak)
+		if feedback_manager:
+			feedback_manager.play_record_break()
+	else:
+		if feedback_manager:
+			feedback_manager.play_level_complete()
+
 	_update_streak_ui(true)
 
-	if success_label:
+	if not triggers_celebration and success_label:
 		success_label.visible = true
 		if current_level_index == current_run_levels.size() - 1:
 			success_label.text = "Harika! Tur Tamamlandı!"
@@ -874,7 +898,7 @@ func _on_completion() -> void:
 
 		label_tween = create_tween()
 		label_tween.tween_property(success_label, "modulate:a", 1.0, 0.15)
-		label_tween.parallel().tween_property(success_label, "scale", Vector2(1.15, 1.15), 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		label_tween.parallel().tween_property(success_label, "scale", Vector2.ONE * 1.15, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		label_tween.chain().tween_property(success_label, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 	if next_button:
@@ -896,6 +920,46 @@ func _on_completion() -> void:
 	level_completed.emit()
 
 
+func _show_record_celebration(streak_val: int) -> void:
+	_kill_record_banner()
+	if success_label:
+		success_label.visible = false
+
+	if not record_banner:
+		return
+
+	if record_title_label:
+		record_title_label.text = "Yeni Kişisel Rekor!"
+	if record_value_label:
+		record_value_label.text = "x%d" % streak_val
+
+	record_banner.visible = true
+	record_banner.pivot_offset = record_banner.size / 2.0
+	record_banner.scale = Vector2(0.8, 0.8)
+	record_banner.modulate.a = 0.0
+
+	record_banner_tween = create_tween()
+	record_banner_tween.tween_property(record_banner, "modulate:a", 1.0, 0.15)
+	record_banner_tween.parallel().tween_property(record_banner, "scale", Vector2.ONE * 1.12, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	record_banner_tween.chain().tween_property(record_banner, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	record_banner_tween.chain().tween_interval(0.40)
+	record_banner_tween.chain().tween_property(record_banner, "modulate:a", 0.0, 0.20)
+	record_banner_tween.finished.connect(func():
+		if is_instance_valid(record_banner):
+			record_banner.visible = false
+	)
+
+
+func _kill_record_banner() -> void:
+	if record_banner_tween and record_banner_tween.is_valid():
+		record_banner_tween.kill()
+		record_banner_tween = null
+	if record_banner:
+		record_banner.visible = false
+		record_banner.scale = Vector2.ONE
+		record_banner.modulate.a = 1.0
+
+
 func _on_transition_delay_finished() -> void:
 	transition_tween = null
 	if current_level_index + 1 < current_run_levels.size():
@@ -904,6 +968,7 @@ func _on_transition_delay_finished() -> void:
 
 func _show_run_complete_overlay() -> void:
 	summary_tween = null
+	_kill_record_banner()
 	if not is_run_completed:
 		return
 
@@ -915,6 +980,8 @@ func _show_run_complete_overlay() -> void:
 	if feedback_manager:
 		feedback_manager.play_run_complete()
 
+	if record_banner:
+		record_banner.visible = false
 	if prompt_label:
 		prompt_label.visible = false
 	if success_label:
@@ -944,6 +1011,12 @@ func _show_run_complete_overlay() -> void:
 func start_new_run() -> void:
 	print("STARTING NEW RUN (Play Again / Retry)")
 	_cancel_pending_transition()
+	_kill_record_banner()
+
+	if save_manager:
+		personal_best_streak = save_manager.get_personal_best_streak()
+	personal_best_at_run_start = personal_best_streak
+	record_broken_this_run = false
 
 	is_run_completed = false
 	is_run_failed = false
@@ -951,6 +1024,8 @@ func start_new_run() -> void:
 	current_streak = 0
 	best_streak_this_run = 0
 
+	if record_banner:
+		record_banner.visible = false
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 		run_complete_overlay.modulate.a = 1.0
@@ -1044,10 +1119,13 @@ func advance_to_next_level() -> void:
 func reset_level() -> void:
 	print("RESETTING CURRENT LEVEL: %d (Resetting streak)" % [current_level_index + 1])
 	_cancel_pending_transition()
+	_kill_record_banner()
 	is_run_completed = false
 	is_run_failed = false
 	current_streak = 0
 
+	if record_banner:
+		record_banner.visible = false
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 	if run_failure_overlay:
@@ -1063,6 +1141,7 @@ func cleanup_run() -> void:
 	print("CLEANING UP ACTIVE RUN -> RETURNING TO MAIN MENU")
 	_cancel_pending_transition()
 	_kill_tutorial_pulse()
+	_kill_record_banner()
 	is_onboarding_active = false
 
 	if label_tween and label_tween.is_valid():
@@ -1089,10 +1168,17 @@ func cleanup_run() -> void:
 	is_run_completed = false
 	is_run_failed = false
 
+	if save_manager:
+		personal_best_streak = save_manager.get_personal_best_streak()
+	personal_best_at_run_start = personal_best_streak
+	record_broken_this_run = false
+
 	_cleanup_current_pieces()
 
 	if onboarding_hint_label:
 		onboarding_hint_label.visible = false
+	if record_banner:
+		record_banner.visible = false
 	if run_complete_overlay:
 		run_complete_overlay.visible = false
 	if run_failure_overlay:

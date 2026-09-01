@@ -121,6 +121,36 @@ text = "Sürükle ve doğru yere bırak"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="RecordBanner" type="Control" parent="."]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_top = 310.0
+offset_right = 720.0
+offset_bottom = 430.0
+mouse_filter = 2
+
+[node name="RecordTitleLabel" type="Label" parent="RecordBanner"]
+offset_right = 720.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.835294, 0.313726, 1)
+theme_override_font_sizes/font_size = 40
+text = "Yeni Kişisel Rekor!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RecordValueLabel" type="Label" parent="RecordBanner"]
+offset_top = 55.0
+offset_right = 720.0
+offset_bottom = 115.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.921569, 0.54902, 1)
+theme_override_font_sizes/font_size = 36
+text = "x6"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="ShapeContainer" type="Node2D" parent="."]
 visible = false
 
@@ -516,7 +546,7 @@ script = ExtResource("5_save_manager")
 [node name="FeedbackManager" type="Node" parent="."]
 script = ExtResource("4_feedback_manager")
 
-[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "onboarding_hint_label", "success_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "try_again_button", "feedback_manager", "save_manager")]
+[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "prompt_label", "onboarding_hint_label", "success_label", "record_banner", "record_title_label", "record_value_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "try_again_button", "feedback_manager", "save_manager")]
 script = ExtResource("2_level_manager")
 piece_scene = ExtResource("3_piece")
 shape_container = NodePath("../ShapeContainer")
@@ -525,6 +555,9 @@ math_target_zone = NodePath("../MathContainer/TargetZone")
 prompt_label = NodePath("../PromptLabel")
 onboarding_hint_label = NodePath("../OnboardingHintLabel")
 success_label = NodePath("../SuccessLabel")
+record_banner = NodePath("../RecordBanner")
+record_title_label = NodePath("../RecordBanner/RecordTitleLabel")
+record_value_label = NodePath("../RecordBanner/RecordValueLabel")
 level_indicator_label = NodePath("../LevelIndicatorLabel")
 lives_label = NodePath("../LivesLabel")
 streak_label = NodePath("../StreakLabel")
