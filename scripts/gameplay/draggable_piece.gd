@@ -10,6 +10,7 @@ signal piece_dropped(piece: DraggablePiece)
 		piece_text = value
 		if is_node_ready() and value_label:
 			value_label.text = piece_text
+			_update_label_font_size()
 
 @export var return_duration: float = 0.22
 @export var is_draggable: bool = true
@@ -55,6 +56,16 @@ func _ready() -> void:
 			visual.polygon = polygon_points
 	if value_label:
 		value_label.text = piece_text
+		_update_label_font_size()
+
+
+func _update_label_font_size() -> void:
+	if not value_label:
+		return
+	if piece_text.length() > 3:
+		value_label.add_theme_font_size_override("font_size", 30)
+	else:
+		value_label.add_theme_font_size_override("font_size", 44)
 
 
 func set_origin_position(pos: Vector2) -> void:

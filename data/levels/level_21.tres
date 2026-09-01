@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+puzzle_type = 3
+prompt_text = "20 sayısını oluştur"
+tier = 3
+target_display = "20"
+correct_answer = "12 + 8"
+answer_choices = Array[String](["12 + 8", "11 + 8", "25 - 4", "13 + 6"])
+choice_colors = Array[Color]([Color(0.258824, 0.647059, 0.960784, 1), Color(0.14902, 0.65098, 0.603922, 1), Color(1, 0.439216, 0.262745, 1), Color(0.68, 0.38, 0.94, 1)])
+match_id = "pair_1"
+piece_a_color = Color(0.258824, 0.647059, 0.960784, 1)
+piece_b_color = Color(1, 0.439216, 0.262745, 1)
+piece_a_polygon = PackedVector2Array()
+piece_b_polygon = PackedVector2Array()
+shape_a_spawn_pos = Vector2(220, 900)
+shape_b_spawn_pos = Vector2(500, 900)
+shape_a_target_pos = Vector2(300, 640)
+shape_b_target_pos = Vector2(420, 640)

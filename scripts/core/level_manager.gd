@@ -384,7 +384,7 @@ func load_level(index: int) -> void:
 
 	# Build puzzle according to type
 	match current_level_data.puzzle_type:
-		LevelData.PuzzleType.MATH_MATCH, LevelData.PuzzleType.MISSING_NUMBER:
+		LevelData.PuzzleType.MATH_MATCH, LevelData.PuzzleType.MISSING_NUMBER, LevelData.PuzzleType.EQUIVALENT_EXPRESSION:
 			_setup_math_level()
 		LevelData.PuzzleType.SHAPE_MATCH:
 			_setup_shape_level()
