@@ -109,10 +109,6 @@ func _ensure_levels_loaded() -> void:
 
 func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData]:
 	_ensure_levels_loaded()
-	if levels.size() < 15:
-		push_warning("LevelManager: Master pool has fewer than 15 levels (%d found)" % levels.size())
-		current_run_levels = levels.duplicate()
-		return current_run_levels
 
 	var prev_t1_start: LevelData = null
 	var prev_t2_start: LevelData = null
@@ -127,55 +123,81 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 		prev_t2_start = previous_run_levels[5]
 		prev_t3_start = previous_run_levels[10]
 
-	# Group master levels into tiers based on authoring order:
-	# Tier 1 (Easy): levels 0..4 (level_01 to level_05)
-	# Tier 2 (Medium): levels 5..9 (level_06 to level_10)
-	# Tier 3 (Hard): levels 10..14 (level_11 to level_15)
-	var tier1: Array[LevelData] = []
-	var tier2: Array[LevelData] = []
-	var tier3: Array[LevelData] = []
+	# Group master levels into tiers based on LevelData.tier property
+	var tier1_pool: Array[LevelData] = []
+	var tier2_pool: Array[LevelData] = []
+	var tier3_pool: Array[LevelData] = []
 
-	for i in range(levels.size()):
-		if i < 5:
-			tier1.append(levels[i])
-		elif i < 10:
-			tier2.append(levels[i])
+	for lvl in levels:
+		match lvl.tier:
+			1:
+				tier1_pool.append(lvl)
+			2:
+				tier2_pool.append(lvl)
+			3:
+				tier3_pool.append(lvl)
+			_:
+				tier1_pool.append(lvl)
+
+	# Validate that each tier pool has at least 5 levels
+	if tier1_pool.size() < 5 or tier2_pool.size() < 5 or tier3_pool.size() < 5:
+		push_error("LevelManager: Insufficient levels per tier! Tier 1: %d, Tier 2: %d, Tier 3: %d (Minimum 5 required per tier)" % [
+			tier1_pool.size(), tier2_pool.size(), tier3_pool.size()
+		])
+		if levels.size() >= 15 and (tier1_pool.is_empty() or tier2_pool.is_empty() or tier3_pool.is_empty()):
+			# Fallback if tiers were not configured on loaded resources
+			tier1_pool = levels.slice(0, 5)
+			tier2_pool = levels.slice(5, 10)
+			tier3_pool = levels.slice(10, 15)
 		else:
-			tier3.append(levels[i])
+			current_run_levels = levels.duplicate()
+			return current_run_levels
 
-	var shuffled_t1: Array[LevelData] = _shuffle_tier_with_anti_clump(tier1, prev_t1_start, 1, rng)
-	var shuffled_t2: Array[LevelData] = _shuffle_tier_with_anti_clump(tier2, prev_t2_start, 2, rng)
-	var shuffled_t3: Array[LevelData] = _shuffle_tier_with_anti_clump(tier3, prev_t3_start, 3, rng)
+	# Sample 5 distinct levels without replacement for each tier with anti-clump & tier-start anti-repeat
+	var sampled_t1: Array[LevelData] = _sample_and_shuffle_tier(tier1_pool, 5, prev_t1_start, 1, rng)
+	var sampled_t2: Array[LevelData] = _sample_and_shuffle_tier(tier2_pool, 5, prev_t2_start, 2, rng)
+	var sampled_t3: Array[LevelData] = _sample_and_shuffle_tier(tier3_pool, 5, prev_t3_start, 3, rng)
 
 	var new_sequence: Array[LevelData] = []
-	new_sequence.append_array(shuffled_t1)
-	new_sequence.append_array(shuffled_t2)
-	new_sequence.append_array(shuffled_t3)
+	new_sequence.append_array(sampled_t1)
+	new_sequence.append_array(sampled_t2)
+	new_sequence.append_array(sampled_t3)
 
 	current_run_levels = new_sequence
-	_log_run_sequence(shuffled_t1, shuffled_t2, shuffled_t3, prev_t1_start, prev_t2_start, prev_t3_start)
+	_log_run_sequence(sampled_t1, sampled_t2, sampled_t3, prev_t1_start, prev_t2_start, prev_t3_start)
 	return current_run_levels
 
 
-func _shuffle_tier_with_anti_clump(tier: Array[LevelData], avoid_start: LevelData = null, tier_num: int = 1, rng: RandomNumberGenerator = null) -> Array[LevelData]:
-	var result: Array[LevelData] = tier.duplicate()
+func _sample_and_shuffle_tier(tier_pool: Array[LevelData], count: int = 5, avoid_start: LevelData = null, tier_num: int = 1, rng: RandomNumberGenerator = null) -> Array[LevelData]:
+	if tier_pool.size() < count:
+		push_error("LevelManager: Tier pool has fewer than %d items (found %d)" % [count, tier_pool.size()])
+		return tier_pool.duplicate()
+
 	var attempts: int = 0
 	var max_attempts: int = 50
 	var had_collision: bool = false
 
 	while attempts < max_attempts:
 		attempts += 1
-		_shuffle_array(result, rng)
-		if _has_clump_of_three(result):
+		var shuffled_pool: Array[LevelData] = tier_pool.duplicate()
+		_shuffle_array(shuffled_pool, rng)
+		var candidate: Array[LevelData] = shuffled_pool.slice(0, count)
+
+		if _has_clump_of_three(candidate):
 			continue
-		if avoid_start != null and result[0] == avoid_start:
+		if avoid_start != null and candidate[0] == avoid_start:
 			had_collision = true
 			continue
 		if had_collision and avoid_start != null:
 			print("[RUN] Tier %d start adjusted to avoid previous start level %d" % [tier_num, _get_level_number(avoid_start)])
-		return result
+		return candidate
 
-	# Safe swap adjustment fallback if attempts exhausted
+	# Safe swap / replacement fallback if random bounded attempts exhausted
+	var fallback_sample: Array[LevelData] = tier_pool.duplicate()
+	_shuffle_array(fallback_sample, rng)
+	var result: Array[LevelData] = fallback_sample.slice(0, count)
+
+	# Try internal swap in the sampled items
 	if avoid_start != null and result[0] == avoid_start:
 		for k in range(1, result.size()):
 			var candidate: Array[LevelData] = result.duplicate()
@@ -186,10 +208,20 @@ func _shuffle_tier_with_anti_clump(tier: Array[LevelData], avoid_start: LevelDat
 				print("[RUN] Tier %d start adjusted to avoid previous start level %d" % [tier_num, _get_level_number(avoid_start)])
 				return candidate
 
-	# Deterministic fallback interleave if random shuffle clumped 50 times
+	# If pool has more than count items, try swapping index 0 with an unpicked element from the pool
+	if avoid_start != null and result[0] == avoid_start and tier_pool.size() > count:
+		for unpicked in tier_pool:
+			if unpicked != avoid_start and not result.has(unpicked):
+				var candidate: Array[LevelData] = result.duplicate()
+				candidate[0] = unpicked
+				if not _has_clump_of_three(candidate):
+					print("[RUN] Tier %d start adjusted to avoid previous start level %d" % [tier_num, _get_level_number(avoid_start)])
+					return candidate
+
+	# Deterministic fallback interleave for the sampled items
 	var math_items: Array[LevelData] = []
 	var shape_items: Array[LevelData] = []
-	for lvl in tier:
+	for lvl in result:
 		if lvl.puzzle_type == LevelData.PuzzleType.MATH_MATCH:
 			math_items.append(lvl)
 		else:

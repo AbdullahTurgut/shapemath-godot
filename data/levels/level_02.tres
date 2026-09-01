@@ -6,6 +6,8 @@
 script = ExtResource("1_data")
 puzzle_type = 1
 prompt_text = "Şekilleri birleştir"
+tier = 1
+target_display = ""
 correct_answer = ""
 answer_choices = Array[String]([])
 choice_colors = Array[Color]([])

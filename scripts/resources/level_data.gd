@@ -4,16 +4,20 @@ extends Resource
 enum PuzzleType {
 	MATH_MATCH,
 	SHAPE_MATCH,
+	MISSING_NUMBER,
+	EQUIVALENT_EXPRESSION,
 }
 
 @export var puzzle_type: PuzzleType = PuzzleType.MATH_MATCH
 @export var prompt_text: String = ""
+@export_range(1, 3) var tier: int = 1
 
-# Math Match Fields
+# Math & Expression Match Fields
 @export_group("Math Match")
 @export var correct_answer: String = ""
 @export var answer_choices: Array[String] = []
 @export var choice_colors: Array[Color] = []
+@export var target_display: String = ""
 
 # Shape Match Fields
 @export_group("Shape Match")
