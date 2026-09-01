@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+puzzle_type = 1
+prompt_text = "Parçaları tamamla"
+tier = 2
+target_display = ""
+correct_answer = ""
+answer_choices = Array[String]([])
+choice_colors = Array[Color]([])
+match_id = "shape_lvl29"
+piece_a_color = Color(0.85, 0.28, 0.85, 1)
+piece_b_color = Color(0.3, 0.82, 0.4, 1)
+piece_a_polygon = PackedVector2Array(-60, -55, 60, -55, 60, -10, 10, -10, 10, 20, -40, 20, -40, 55, -60, 55)
+piece_b_polygon = PackedVector2Array(-40, 20, 10, 20, 10, -10, 60, -10, 60, 55, -40, 55)
+shape_a_spawn_pos = Vector2(220, 900)
+shape_b_spawn_pos = Vector2(500, 900)
+shape_a_target_pos = Vector2(360, 640)
+shape_b_target_pos = Vector2(360, 640)
