@@ -4,6 +4,8 @@ extends Node
 signal level_completed
 signal level_reset
 
+const SquareFillSlot = preload("res://scripts/gameplay/square_fill_slot.gd")
+
 @export var levels: Array[LevelData] = []
 @export var piece_scene: PackedScene = preload("res://scenes/pieces/draggable_piece.tscn")
 @export var current_level_index: int = 0
@@ -16,6 +18,8 @@ signal level_reset
 @export_group("Scene References")
 @export var shape_container: Node2D
 @export var math_container: Node2D
+@export var square_fill_container: Node2D
+@export var square_fill_slot_scene: PackedScene = preload("res://scenes/components/square_fill_slot.tscn")
 @export var math_target_zone: Area2D
 @export var success_burst: CPUParticles2D
 @export var prompt_label: Label
@@ -99,6 +103,9 @@ var math_pieces: Array[DraggablePiece] = []
 var shape_pieces: Array[DraggablePiece] = []
 var shape_piece_a: DraggablePiece = null
 var shape_piece_b: DraggablePiece = null
+var square_fill_pieces: Array[DraggablePiece] = []
+var square_fill_slots: Array[SquareFillSlot] = []
+var placed_square_fill_count: int = 0
 
 var gameplay_y_offset: float = 0.0
 
@@ -116,15 +123,28 @@ func _reposition_gameplay_elements() -> void:
 	if prompt_label:
 		prompt_label.position.y = 200.0 + gameplay_y_offset
 	if success_label:
-		success_label.position.y = 330.0 + gameplay_y_offset
+		if current_level_data and current_level_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+			success_label.position.y = 225.0 + gameplay_y_offset
+		else:
+			success_label.position.y = 330.0 + gameplay_y_offset
 	if next_button:
 		next_button.position.y = 410.0 + gameplay_y_offset
 	if onboarding_hint_label:
 		onboarding_hint_label.position.y = 370.0 + gameplay_y_offset
 	if record_banner:
-		record_banner.position.y = 310.0 + gameplay_y_offset
+		if current_level_data and current_level_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+			record_banner.position.y = 210.0 + gameplay_y_offset
+		else:
+			record_banner.position.y = 310.0 + gameplay_y_offset
 	if math_target_zone:
 		math_target_zone.position = Vector2(360.0, 540.0 + gameplay_y_offset)
+	if square_fill_container:
+		var board: Node2D = square_fill_container.get_node_or_null("Board") as Node2D
+		if board:
+			board.position = Vector2(360.0, 430.0 + gameplay_y_offset)
+		var shelf: Node2D = square_fill_container.get_node_or_null("Shelf") as Node2D
+		if shelf:
+			shelf.position = Vector2(360.0, 840.0 + gameplay_y_offset)
 
 
 func _ready() -> void:
@@ -737,6 +757,8 @@ func load_level(index: int) -> void:
 			_setup_math_level()
 		LevelData.PuzzleType.SHAPE_MATCH:
 			_setup_shape_level()
+		LevelData.PuzzleType.SQUARE_FILL:
+			_setup_square_fill_level()
 
 	var puzzle_type_str: String = "MATH_MATCH"
 	match current_level_data.puzzle_type:
@@ -750,6 +772,8 @@ func load_level(index: int) -> void:
 			puzzle_type_str = "EQUIVALENT_EXPRESSION"
 		LevelData.PuzzleType.NUMBER_SEQUENCE:
 			puzzle_type_str = "NUMBER_SEQUENCE"
+		LevelData.PuzzleType.SQUARE_FILL:
+			puzzle_type_str = "SQUARE_FILL"
 
 	print("LOADED RUN LEVEL %d / %d: %s (%s) [Original: Level %d, Lives: %d, Streak: %d, Best: %d]" % [
 		current_level_index + 1,
@@ -778,6 +802,7 @@ func _reset_puzzle_type_visual_state() -> void:
 		success_burst.position = Vector2(360.0, 540.0 + gameplay_y_offset)
 
 	_cleanup_current_pieces()
+	placed_square_fill_count = 0
 
 	if math_container:
 		math_container.visible = false
@@ -816,6 +841,12 @@ func _reset_puzzle_type_visual_state() -> void:
 		shape_container.rotation = 0.0
 		shape_container.modulate = Color.WHITE
 
+	if square_fill_container:
+		square_fill_container.visible = false
+		square_fill_container.scale = Vector2.ONE
+		square_fill_container.rotation = 0.0
+		square_fill_container.modulate = Color.WHITE
+
 	if success_label:
 		success_label.visible = false
 		success_label.scale = Vector2.ONE
@@ -829,9 +860,12 @@ func _reset_puzzle_type_visual_state() -> void:
 	if next_button:
 		next_button.visible = false
 
+	DraggablePiece.clear_active_drag()
+
 
 func _cleanup_current_pieces() -> void:
 	_kill_tutorial_pulse()
+	DraggablePiece.clear_active_drag()
 	for piece in math_pieces:
 		if is_instance_valid(piece):
 			if piece.piece_dropped.is_connected(_on_math_piece_dropped):
@@ -854,10 +888,29 @@ func _cleanup_current_pieces() -> void:
 	shape_piece_a = null
 	shape_piece_b = null
 
+	for piece in square_fill_pieces:
+		if is_instance_valid(piece):
+			if piece.piece_dropped.is_connected(_on_square_fill_piece_dropped):
+				piece.piece_dropped.disconnect(_on_square_fill_piece_dropped)
+			if piece.drag_started.is_connected(_on_piece_drag_started):
+				piece.drag_started.disconnect(_on_piece_drag_started)
+			piece.disable_drag()
+			piece.visible = false
+			piece.queue_free()
+	square_fill_pieces.clear()
+
+	for slot in square_fill_slots:
+		if is_instance_valid(slot):
+			slot.reset_slot()
+			slot.queue_free()
+	square_fill_slots.clear()
+
 
 func _setup_math_level() -> void:
 	if shape_container:
 		shape_container.visible = false
+	if square_fill_container:
+		square_fill_container.visible = false
 	if math_container:
 		math_container.visible = true
 
@@ -924,6 +977,8 @@ func _setup_shape_level() -> void:
 		if placeholder_lbl:
 			placeholder_lbl.text = ""
 			placeholder_lbl.visible = false
+	if square_fill_container:
+		square_fill_container.visible = false
 	if shape_container:
 		shape_container.visible = true
 
@@ -963,6 +1018,175 @@ func _setup_shape_level() -> void:
 	piece_b.piece_dropped.connect(_on_shape_piece_dropped)
 	shape_pieces.append(piece_b)
 	shape_piece_b = piece_b
+
+
+const DEFAULT_SQUARE_FILL_PALETTE: Array[Color] = [
+	Color(0.258824, 0.647059, 0.960784, 1), # 0: Cyan
+	Color(0.14902, 0.65098, 0.603922, 1),   # 1: Teal
+	Color(1.0, 0.439216, 0.262745, 1),     # 2: Coral
+	Color(0.670588, 0.278431, 0.737255, 1), # 3: Purple
+	Color(1.0, 0.792157, 0.156863, 1),     # 4: Amber
+	Color(0.611765, 0.8, 0.396078, 1),     # 5: Lime
+	Color(0.92549, 0.25098, 0.478431, 1),  # 6: Pink
+	Color(0.360784, 0.419608, 0.752941, 1), # 7: Indigo
+	Color(0.180392, 0.8, 0.443137, 1)      # 8: Emerald
+]
+
+const DEFAULT_SQUARE_FILL_SYMBOLS: Array[String] = [
+	"●", "▲", "■", "★", "◆", "✦", "⬟", "✚", "✿"
+]
+
+
+func _setup_square_fill_level() -> void:
+	if math_container:
+		math_container.visible = false
+	if math_target_zone:
+		math_target_zone.visible = false
+	if shape_container:
+		shape_container.visible = false
+	if square_fill_container:
+		square_fill_container.visible = true
+
+	placed_square_fill_count = 0
+
+	var board_node: Node2D = null
+	var shelf_node: Node2D = null
+	if square_fill_container:
+		board_node = square_fill_container.get_node_or_null("Board") as Node2D
+		shelf_node = square_fill_container.get_node_or_null("Shelf") as Node2D
+
+	var board_center: Vector2 = Vector2(360.0, 430.0 + gameplay_y_offset)
+	var shelf_center: Vector2 = Vector2(360.0, 840.0 + gameplay_y_offset)
+
+	if board_node:
+		board_node.position = board_center
+	if shelf_node:
+		shelf_node.position = shelf_center
+
+	var colors: Array[Color] = DEFAULT_SQUARE_FILL_PALETTE.duplicate()
+	if current_level_data and current_level_data.square_fill_piece_colors.size() == 9:
+		colors = current_level_data.square_fill_piece_colors.duplicate()
+
+	var symbols: Array[String] = DEFAULT_SQUARE_FILL_SYMBOLS.duplicate()
+	if current_level_data and current_level_data.square_fill_piece_symbols.size() == 9:
+		symbols = current_level_data.square_fill_piece_symbols.duplicate()
+
+	var hint_mode: int = 0
+	if current_level_data:
+		hint_mode = current_level_data.square_fill_hint_mode
+
+	# 1. Instantiate 9 Slots on 3x3 Board
+	for i in range(9):
+		var slot_inst: SquareFillSlot = square_fill_slot_scene.instantiate() as SquareFillSlot
+		var slot_row: int = i / 3
+		var slot_col: int = i % 3
+		var slot_rel_pos: Vector2 = Vector2((slot_col - 1) * 100.0, (slot_row - 1) * 100.0)
+		slot_inst.name = "Slot_%d" % i
+		slot_inst.slot_index = i
+
+		if board_node:
+			board_node.add_child(slot_inst)
+			slot_inst.position = slot_rel_pos
+		else:
+			add_child(slot_inst)
+			slot_inst.position = board_center + slot_rel_pos
+
+		slot_inst.set_hint(colors[i], symbols[i], hint_mode)
+		square_fill_slots.append(slot_inst)
+
+	# 2. Determine shelf spawn order
+	var shelf_order: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+	if current_level_data and current_level_data.square_fill_shelf_order.size() == 9:
+		shelf_order = current_level_data.square_fill_shelf_order.duplicate()
+
+	# 3. Squircle polygon for pieces (84x84)
+	var piece_poly: PackedVector2Array = PackedVector2Array([
+		Vector2(-34, -42), Vector2(34, -42), Vector2(42, -34),
+		Vector2(42, 34), Vector2(34, 42), Vector2(-34, 42),
+		Vector2(-42, 34), Vector2(-42, -34)
+	])
+
+	# 4. Instantiate 9 DraggablePieces on 3x3 Shelf
+	for i in range(9):
+		var piece_idx: int = i
+		var spawn_slot_pos_idx: int = shelf_order[i] # Position in shelf grid
+		var spawn_row: int = spawn_slot_pos_idx / 3
+		var spawn_col: int = spawn_slot_pos_idx % 3
+		var spawn_global_pos: Vector2 = shelf_center + Vector2((spawn_col - 1) * 100.0, (spawn_row - 1) * 100.0)
+
+		var piece: DraggablePiece = piece_scene.instantiate() as DraggablePiece
+		piece.name = "SquarePiece_%d" % piece_idx
+		piece.piece_id = piece_idx
+		piece.target_slot_index = piece_idx
+		piece.piece_color = colors[piece_idx]
+		piece.piece_text = symbols[piece_idx]
+		piece.set_custom_polygon(piece_poly)
+		piece.set_hitbox_size(Vector2(88.0, 88.0))
+
+		if shelf_node:
+			shelf_node.add_child(piece)
+		else:
+			add_child(piece)
+
+		piece.set_origin_position(spawn_global_pos)
+		piece.piece_dropped.connect(_on_square_fill_piece_dropped)
+		piece.drag_started.connect(_on_piece_drag_started)
+		square_fill_pieces.append(piece)
+
+
+func _on_square_fill_piece_dropped(piece: DraggablePiece) -> void:
+	if is_completed or is_run_failed or piece.is_locked:
+		return
+
+	var overlapping_areas: Array[Area2D] = piece.get_overlapping_areas()
+	var target_slot: SquareFillSlot = null
+	var min_dist: float = 999999.0
+
+	for area in overlapping_areas:
+		if area is SquareFillSlot:
+			var d: float = piece.global_position.distance_to(area.global_position)
+			if d < min_dist and d <= 65.0:
+				min_dist = d
+				target_slot = area
+
+	if target_slot != null:
+		if target_slot.is_occupied:
+			print("OCCUPIED SLOT: Slot %d is already occupied" % target_slot.slot_index)
+			piece.return_neutral()
+		elif target_slot.slot_index == piece.target_slot_index:
+			# Atomic Placement Guard: verify not already locked / occupied
+			if piece.is_locked or target_slot.is_occupied:
+				return
+
+			target_slot.is_occupied = true
+			target_slot.placed_piece = piece
+			piece.is_locked = true
+			piece.disable_drag()
+
+			placed_square_fill_count += 1
+			print("CORRECT SQUARE FILL PIECE: Piece %d placed into Slot %d (Count: %d/9)" % [piece.piece_id, target_slot.slot_index, placed_square_fill_count])
+
+			target_slot.flash_correct()
+			piece.play_success_feedback(target_slot.global_position, 0.22)
+
+			if feedback_manager:
+				feedback_manager.play_tile_snap()
+
+			if placed_square_fill_count >= 9:
+				if not is_completed:
+					is_completed = true
+					print("SQUARE FILL BOARD COMPLETED (9/9)!")
+					if success_burst:
+						success_burst.position = Vector2(360.0, 430.0 + gameplay_y_offset)
+						success_burst.restart()
+					_on_completion()
+		else:
+			print("DELIBERATE WRONG ATTEMPT: Piece %d placed into wrong Slot %d (expected %d)" % [piece.piece_id, target_slot.slot_index, piece.target_slot_index])
+			target_slot.flash_wrong()
+			_handle_deliberate_failure(piece)
+	else:
+		print("CANCELLED DROP: Square Fill piece %d released in empty space (no penalty)" % piece.piece_id)
+		piece.return_neutral()
 
 
 func _on_shape_piece_dropped(piece: DraggablePiece) -> void:
@@ -1094,6 +1318,9 @@ func _trigger_run_failure() -> void:
 	for p in shape_pieces:
 		if is_instance_valid(p):
 			p.disable_drag()
+	for p in square_fill_pieces:
+		if is_instance_valid(p):
+			p.disable_drag()
 
 	# Schedule failure overlay appearance after wrong-feedback shake completes
 	failure_tween = create_tween()
@@ -1149,6 +1376,8 @@ func _show_run_failure_overlay() -> void:
 		math_container.visible = false
 	if shape_container:
 		shape_container.visible = false
+	if square_fill_container:
+		square_fill_container.visible = false
 
 	var failure_title_lbl: Label = run_failure_overlay.get_node_or_null("Card/CardTitle") as Label
 	if failure_title_lbl:
@@ -1246,6 +1475,10 @@ func _on_piece_drag_started(_piece: DraggablePiece) -> void:
 
 func _on_completion() -> void:
 	print("LEVEL COMPLETED: Level %d / %d" % [current_level_index + 1, current_run_levels.size()])
+
+	if current_level_data and current_level_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+		if prompt_label:
+			prompt_label.visible = false
 
 	# Increment streak and update best streaks
 	current_streak += 1

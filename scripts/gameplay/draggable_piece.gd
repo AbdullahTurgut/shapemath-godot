@@ -5,6 +5,9 @@ signal drag_started(piece: DraggablePiece)
 signal piece_dropped(piece: DraggablePiece)
 
 @export var match_id: String = ""
+@export var piece_id: int = -1
+@export var target_slot_index: int = -1
+@export var is_locked: bool = false
 @export var piece_text: String = "":
 	set(value):
 		piece_text = value
@@ -34,6 +37,11 @@ var original_position: Vector2 = Vector2.ZERO
 var active_touch_index: int = -1
 var current_lift: float = 0.0
 
+static var active_drag_piece: DraggablePiece = null
+
+static func clear_active_drag() -> void:
+	active_drag_piece = null
+
 var return_tween: Tween = null
 var scale_tween: Tween = null
 var lift_tween: Tween = null
@@ -44,6 +52,14 @@ var _original_position_captured: bool = false
 @onready var shadow: Polygon2D = get_node_or_null("Shadow") as Polygon2D
 @onready var border: Line2D = get_node_or_null("Border") as Line2D
 @onready var value_label: Label = $ValueLabel
+
+
+func set_hitbox_size(box_size: Vector2) -> void:
+	var cs: CollisionShape2D = get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if cs:
+		var rect_shape := RectangleShape2D.new()
+		rect_shape.size = box_size
+		cs.shape = rect_shape
 
 
 func _ready() -> void:
@@ -111,35 +127,49 @@ func _kill_active_tweens() -> void:
 
 
 func _input_event(_viewport: Viewport, event: InputEvent, _shape_idx: int) -> void:
-	if not is_draggable or is_dragging:
+	if not is_draggable or is_dragging or is_locked:
+		return
+
+	# Enforce single active drag piece ownership
+	if is_instance_valid(active_drag_piece) and active_drag_piece != self:
 		return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.is_pressed():
 		_start_drag(-1)
+		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenTouch and event.is_pressed():
 		_start_drag(event.index)
+		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_dragging:
 		return
+	if active_drag_piece != self:
+		return
 
 	if active_touch_index != -1:
 		if event is InputEventScreenDrag and event.index == active_touch_index:
 			_update_drag_position()
+			get_viewport().set_input_as_handled()
 		elif event is InputEventScreenTouch and event.index == active_touch_index and not event.is_pressed():
 			_end_drag()
+			get_viewport().set_input_as_handled()
 	else:
 		if event is InputEventMouseMotion:
 			_update_drag_position()
 		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.is_pressed():
 			_end_drag()
+			get_viewport().set_input_as_handled()
 
 
 func _start_drag(touch_index: int) -> void:
-	if not is_draggable:
+	if not is_draggable or is_locked:
+		return
+	if is_instance_valid(active_drag_piece) and active_drag_piece != self:
 		return
 
+	active_drag_piece = self
 	_kill_active_tweens()
 	modulate = Color.WHITE
 
@@ -174,6 +204,9 @@ func _update_drag_position() -> void:
 
 
 func _end_drag() -> void:
+	if active_drag_piece == self:
+		active_drag_piece = null
+
 	is_dragging = false
 	active_touch_index = -1
 	current_lift = 0.0
@@ -198,6 +231,9 @@ func _end_drag() -> void:
 
 
 func play_invalid_feedback() -> Tween:
+	if active_drag_piece == self:
+		active_drag_piece = null
+
 	_kill_active_tweens()
 
 	is_draggable = false
@@ -277,6 +313,9 @@ func play_success_feedback(target_pos: Vector2, duration: float = 0.32) -> Tween
 
 
 func disable_drag() -> void:
+	if active_drag_piece == self:
+		active_drag_piece = null
+
 	is_draggable = false
 	input_pickable = false
 	is_dragging = false
@@ -293,11 +332,15 @@ func disable_drag() -> void:
 
 
 func reset_piece() -> void:
+	if active_drag_piece == self:
+		active_drag_piece = null
+
 	_kill_active_tweens()
 
 	is_dragging = false
 	active_touch_index = -1
 	current_lift = 0.0
+	is_locked = false
 	is_draggable = true
 	input_pickable = true
 	scale = Vector2.ONE
@@ -315,6 +358,9 @@ func reset_piece() -> void:
 
 
 func return_neutral(duration: float = 0.20) -> Tween:
+	if active_drag_piece == self:
+		active_drag_piece = null
+
 	_kill_active_tweens()
 	is_draggable = false
 	input_pickable = false
@@ -335,6 +381,16 @@ func return_neutral(duration: float = 0.20) -> Tween:
 		feedback_tween.parallel().tween_property(shadow, "color:a", 0.28, duration)
 	feedback_tween.finished.connect(_on_invalid_feedback_finished)
 	return feedback_tween
+
+
+func cancel_drag() -> void:
+	if active_drag_piece == self:
+		active_drag_piece = null
+	is_dragging = false
+	active_touch_index = -1
+	current_lift = 0.0
+	_kill_active_tweens()
+	return_neutral()
 
 
 func return_to_origin() -> void:

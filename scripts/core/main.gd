@@ -518,6 +518,7 @@ func _set_gameplay_visible(is_vis: bool) -> void:
 	var in_game_menu_btn: Button = get_node_or_null("InGameMenuButton")
 	var shape_cnt: Node2D = get_node_or_null("ShapeContainer")
 	var math_cnt: Node2D = get_node_or_null("MathContainer")
+	var square_fill_cnt: Node2D = get_node_or_null("SquareFillContainer")
 
 	if level_lbl: level_lbl.visible = is_vis
 	if lives_lbl: lives_lbl.visible = is_vis
@@ -536,17 +537,26 @@ func _set_gameplay_visible(is_vis: bool) -> void:
 	if not is_vis:
 		if shape_cnt: shape_cnt.visible = false
 		if math_cnt: math_cnt.visible = false
+		if square_fill_cnt: square_fill_cnt.visible = false
 	else:
 		if level_manager and level_manager.current_level_data:
-			if level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
-				if shape_cnt: shape_cnt.visible = true
-				if math_cnt: math_cnt.visible = false
-			else:
-				if math_cnt: math_cnt.visible = true
-				if shape_cnt: shape_cnt.visible = false
+			match level_manager.current_level_data.puzzle_type:
+				LevelData.PuzzleType.SHAPE_MATCH:
+					if shape_cnt: shape_cnt.visible = true
+					if math_cnt: math_cnt.visible = false
+					if square_fill_cnt: square_fill_cnt.visible = false
+				LevelData.PuzzleType.SQUARE_FILL:
+					if square_fill_cnt: square_fill_cnt.visible = true
+					if shape_cnt: shape_cnt.visible = false
+					if math_cnt: math_cnt.visible = false
+				_:
+					if math_cnt: math_cnt.visible = true
+					if shape_cnt: shape_cnt.visible = false
+					if square_fill_cnt: square_fill_cnt.visible = false
 		else:
 			if shape_cnt: shape_cnt.visible = false
 			if math_cnt: math_cnt.visible = false
+			if square_fill_cnt: square_fill_cnt.visible = false
 
 
 func _on_next_button_pressed() -> void:

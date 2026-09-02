@@ -7,6 +7,7 @@ enum PuzzleType {
 	MISSING_NUMBER,
 	EQUIVALENT_EXPRESSION,
 	NUMBER_SEQUENCE,
+	SQUARE_FILL,
 }
 
 @export var puzzle_type: PuzzleType = PuzzleType.MATH_MATCH
@@ -31,3 +32,10 @@ enum PuzzleType {
 @export var shape_b_spawn_pos: Vector2 = Vector2(500, 900)
 @export var shape_a_target_pos: Vector2 = Vector2(300, 640)
 @export var shape_b_target_pos: Vector2 = Vector2(420, 640)
+
+# Square Fill Fields
+@export_group("Square Fill")
+@export var square_fill_piece_colors: Array[Color] = []
+@export var square_fill_piece_symbols: Array[String] = []
+@export var square_fill_hint_mode: int = 0 # 0 = Full (Easy), 1 = Subtle (Medium), 2 = None (Hard)
+@export var square_fill_shelf_order: Array[int] = [] # Optional custom spawn order (0..8)

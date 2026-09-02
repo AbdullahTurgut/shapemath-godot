@@ -1,0 +1,37 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/square_fill_slot.gd" id="1_slot"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_slot"]
+size = Vector2(88, 88)
+
+[node name="SquareFillSlot" type="Area2D"]
+script = ExtResource("1_slot")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_slot")
+
+[node name="Border" type="Polygon2D" parent="."]
+color = Color(0.25098, 0.321569, 0.439216, 1)
+polygon = PackedVector2Array(-36, -45, 36, -45, 45, -36, 45, 36, 36, 45, -36, 45, -45, 36, -45, -36)
+
+[node name="Slot" type="Polygon2D" parent="."]
+color = Color(0.121569, 0.141176, 0.2, 1)
+polygon = PackedVector2Array(-32, -40, 32, -40, 40, -32, 40, 32, 32, 40, -32, 40, -40, 32, -40, -32)
+
+[node name="HintVisual" type="Polygon2D" parent="."]
+visible = false
+color = Color(1, 1, 1, 0.1)
+polygon = PackedVector2Array(-28, -35, 28, -35, 35, -28, 35, 28, 28, 35, -28, 35, -35, 28, -35, -28)
+
+[node name="HintLabel" type="Label" parent="."]
+visible = false
+offset_left = -40.0
+offset_top = -40.0
+offset_right = 40.0
+offset_bottom = 40.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.5)
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+vertical_alignment = 1

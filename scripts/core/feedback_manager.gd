@@ -75,6 +75,11 @@ func play_correct() -> void:
 	_vibrate(40)
 
 
+func play_tile_snap() -> void:
+	_play_sfx(SFX_CORRECT, -3.0)
+	_vibrate(20)
+
+
 func play_level_complete() -> void:
 	_play_sfx(SFX_LEVEL_COMPLETE, 0.0)
 	_vibrate(55)

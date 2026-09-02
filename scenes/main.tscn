@@ -239,6 +239,7 @@ vertical_alignment = 1
 
 [node name="SuccessLabel" type="Label" parent="."]
 visible = false
+z_index = 5
 offset_top = 330.0
 offset_right = 720.0
 offset_bottom = 390.0
@@ -251,6 +252,7 @@ vertical_alignment = 1
 
 [node name="NextButton" type="Button" parent="."]
 visible = false
+z_index = 5
 offset_left = 240.0
 offset_top = 410.0
 offset_right = 480.0
@@ -275,6 +277,7 @@ vertical_alignment = 1
 
 [node name="RecordBanner" type="Control" parent="."]
 visible = false
+z_index = 5
 layout_mode = 3
 anchors_preset = 0
 offset_top = 310.0
@@ -350,6 +353,15 @@ theme_override_font_sizes/font_size = 40
 text = "?"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="SquareFillContainer" type="Node2D" parent="."]
+visible = false
+
+[node name="Board" type="Node2D" parent="SquareFillContainer"]
+position = Vector2(360, 430)
+
+[node name="Shelf" type="Node2D" parent="SquareFillContainer"]
+position = Vector2(360, 840)
 
 [node name="MainMenu" type="Control" parent="."]
 z_index = 10
@@ -1040,11 +1052,12 @@ script = ExtResource("5_save_manager")
 [node name="FeedbackManager" type="Node" parent="."]
 script = ExtResource("4_feedback_manager")
 
-[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "math_target_zone", "success_burst", "prompt_label", "onboarding_hint_label", "success_label", "record_banner", "record_title_label", "record_value_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_title_label", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "failure_motivation_label", "try_again_button", "feedback_manager", "save_manager")]
+[node name="LevelManager" type="Node" parent="." node_paths=PackedStringArray("shape_container", "math_container", "square_fill_container", "math_target_zone", "success_burst", "prompt_label", "onboarding_hint_label", "success_label", "record_banner", "record_title_label", "record_value_label", "level_indicator_label", "lives_label", "streak_label", "next_button", "run_complete_overlay", "summary_title_label", "summary_final_streak_label", "summary_best_streak_label", "summary_session_streak_label", "play_again_button", "run_failure_overlay", "failure_progress_label", "failure_best_streak_label", "failure_session_streak_label", "failure_motivation_label", "try_again_button", "feedback_manager", "save_manager")]
 script = ExtResource("2_level_manager")
 piece_scene = ExtResource("3_piece")
 shape_container = NodePath("../ShapeContainer")
 math_container = NodePath("../MathContainer")
+square_fill_container = NodePath("../SquareFillContainer")
 math_target_zone = NodePath("../MathContainer/TargetZone")
 success_burst = NodePath("../SuccessBurst")
 prompt_label = NodePath("../PromptLabel")
