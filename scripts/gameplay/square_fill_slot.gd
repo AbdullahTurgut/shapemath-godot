@@ -62,11 +62,11 @@ func set_hint(piece_color: Color, symbol: String, hint_mode: int) -> void:
 		1: # Subtle / Medium
 			if hint_visual:
 				hint_visual.visible = true
-				hint_visual.color = Color(1.0, 1.0, 1.0, 0.05)
+				hint_visual.color = Color(piece_color.r, piece_color.g, piece_color.b, 0.12)
 			if hint_label and not symbol.is_empty():
 				hint_label.visible = true
 				hint_label.text = symbol
-				hint_label.modulate = Color(0.5, 0.6, 0.75, 0.35)
+				hint_label.modulate = Color(piece_color.r * 0.6 + 0.4, piece_color.g * 0.6 + 0.4, piece_color.b * 0.6 + 0.4, 0.45)
 		_: # Spatial / Hard (hint_mode >= 2)
 			if hint_visual:
 				hint_visual.visible = true

@@ -54,7 +54,8 @@ func _run_tests() -> void:
 		LevelData.PuzzleType.SHAPE_MATCH: 0,
 		LevelData.PuzzleType.MISSING_NUMBER: 0,
 		LevelData.PuzzleType.EQUIVALENT_EXPRESSION: 0,
-		LevelData.PuzzleType.NUMBER_SEQUENCE: 0
+		LevelData.PuzzleType.NUMBER_SEQUENCE: 0,
+		LevelData.PuzzleType.SQUARE_FILL: 0
 	}
 
 	var total_runs: int = 50
@@ -117,9 +118,10 @@ func _run_tests() -> void:
 	print("   • MISSING_NUMBER: %d (%.1f%%)" % [type_exposure[LevelData.PuzzleType.MISSING_NUMBER], (float(type_exposure[LevelData.PuzzleType.MISSING_NUMBER]) / 750.0) * 100.0])
 	print("   • EQUIVALENT_EXPRESSION: %d (%.1f%%)" % [type_exposure[LevelData.PuzzleType.EQUIVALENT_EXPRESSION], (float(type_exposure[LevelData.PuzzleType.EQUIVALENT_EXPRESSION]) / 750.0) * 100.0])
 	print("   • NUMBER_SEQUENCE: %d (%.1f%%)" % [type_exposure[LevelData.PuzzleType.NUMBER_SEQUENCE], (float(type_exposure[LevelData.PuzzleType.NUMBER_SEQUENCE]) / 750.0) * 100.0])
+	print("   • SQUARE_FILL: %d (%.1f%%)" % [type_exposure[LevelData.PuzzleType.SQUARE_FILL], (float(type_exposure[LevelData.PuzzleType.SQUARE_FILL]) / 750.0) * 100.0])
 
-	assert(zero_overlap_count == total_runs - 1, "100% of consecutive runs had 0 overlap under 18-candidate pool")
-	assert(type_exposure[LevelData.PuzzleType.NUMBER_SEQUENCE] > 0, "NUMBER_SEQUENCE actively appeared in runs")
+	assert(zero_overlap_count == total_runs - 1, "100% of consecutive runs had 0 overlap under 19-candidate pool")
+	assert(type_exposure[LevelData.PuzzleType.SQUARE_FILL] > 0, "SQUARE_FILL actively appeared in runs")
 	assert(tier_start_repeat_count == 0, "Tier-start anti-repeat prevented any consecutive tier-start duplicates")
 	print("-> TEST 1 PASSED: Multi-run variety, cooldown, and anti-clumping verified.")
 

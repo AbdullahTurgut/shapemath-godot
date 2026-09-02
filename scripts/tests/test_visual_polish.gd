@@ -417,6 +417,9 @@ func test_run_lifecycle_isolation() -> void:
 	if level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
 		assert_true(shape_container.visible, "Standard Run: ShapeContainer visible for shape level")
 		assert_true(not math_container.visible, "Standard Run: MathContainer hidden for shape level")
+	elif level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+		assert_true(not math_container.visible, "Standard Run: MathContainer hidden for square fill")
+		assert_true(not shape_container.visible, "Standard Run: ShapeContainer hidden for square fill")
 	else:
 		assert_true(math_container.visible, "Standard Run: MathContainer visible for math level")
 		assert_true(not shape_container.visible, "Standard Run: ShapeContainer hidden for math level")
@@ -427,6 +430,9 @@ func test_run_lifecycle_isolation() -> void:
 	if level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
 		assert_true(shape_container.visible, "Play Again: ShapeContainer visible for shape level")
 		assert_true(not math_container.visible, "Play Again: MathContainer hidden for shape level")
+	elif level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+		assert_true(not math_container.visible, "Play Again: MathContainer hidden for square fill")
+		assert_true(not shape_container.visible, "Play Again: ShapeContainer hidden for square fill")
 	else:
 		assert_true(math_container.visible, "Play Again: MathContainer visible for math level")
 		assert_true(not shape_container.visible, "Play Again: ShapeContainer hidden for math level")
@@ -437,6 +443,9 @@ func test_run_lifecycle_isolation() -> void:
 	if level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
 		assert_true(shape_container.visible, "Try Again: ShapeContainer visible for shape level")
 		assert_true(not math_container.visible, "Try Again: MathContainer hidden for shape level")
+	elif level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+		assert_true(not math_container.visible, "Try Again: MathContainer hidden for square fill")
+		assert_true(not shape_container.visible, "Try Again: ShapeContainer hidden for square fill")
 	else:
 		assert_true(math_container.visible, "Try Again: MathContainer visible for math level")
 		assert_true(not shape_container.visible, "Try Again: ShapeContainer hidden for math level")

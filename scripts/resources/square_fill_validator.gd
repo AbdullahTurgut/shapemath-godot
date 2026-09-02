@@ -29,6 +29,17 @@ static func validate(data: LevelData) -> Array[String]:
 			if data.square_fill_piece_symbols[i].strip_edges().is_empty():
 				errors.append("square_fill_piece_symbols[%d] is empty" % i)
 
+	# Visual uniqueness: each of the 9 pieces must have a distinguishable (color, symbol) combination
+	if data.square_fill_piece_colors.size() == 9 and data.square_fill_piece_symbols.size() == 9:
+		var visual_signatures: Dictionary = {}
+		for i in range(9):
+			var sig: String = "%s|%s" % [data.square_fill_piece_colors[i].to_html(false), data.square_fill_piece_symbols[i]]
+			if visual_signatures.has(sig):
+				errors.append("Pieces %d and %d have identical visual appearance (color '%s', symbol '%s')" % [
+					visual_signatures[sig], i, data.square_fill_piece_colors[i].to_html(false), data.square_fill_piece_symbols[i]
+				])
+			visual_signatures[sig] = i
+
 	if not data.square_fill_shelf_order.is_empty():
 		if data.square_fill_shelf_order.size() != 9:
 			errors.append("square_fill_shelf_order must have exactly 9 entries when specified (found %d)" % data.square_fill_shelf_order.size())

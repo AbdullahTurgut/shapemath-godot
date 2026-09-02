@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+puzzle_type = 5
+prompt_text = "Kareyi tamamla"
+tier = 3
+square_fill_hint_mode = 2
+square_fill_shelf_order = Array[int]([8, 3, 5, 1, 7, 0, 6, 2, 4])
+square_fill_piece_colors = Array[Color]([Color(0.22, 0.45, 0.65, 1), Color(0.24, 0.48, 0.7, 1), Color(0.22, 0.45, 0.65, 1), Color(0.25, 0.5, 0.72, 1), Color(0.3, 0.6, 0.85, 1), Color(0.25, 0.5, 0.72, 1), Color(0.22, 0.45, 0.65, 1), Color(0.24, 0.48, 0.7, 1), Color(0.22, 0.45, 0.65, 1)])
+square_fill_piece_symbols = Array[String](["⌜", "⊤", "⌝", "⊢", "✦", "⊣", "⌞", "⊥", "⌟"])

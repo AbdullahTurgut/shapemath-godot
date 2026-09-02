@@ -402,9 +402,18 @@ func generate_daily_run_sequence(date_key: int = 0) -> Array[LevelData]:
 func _sample_tier_deterministic(tier_pool: Array[LevelData], count: int, rng: RandomNumberGenerator) -> Array[LevelData]:
 	if tier_pool.size() < count:
 		return tier_pool.duplicate()
-	var pool_copy: Array[LevelData] = tier_pool.duplicate()
-	_shuffle_array(pool_copy, rng)
-	return pool_copy.slice(0, count)
+	var attempts: int = 0
+	while attempts < 50:
+		attempts += 1
+		var pool_copy: Array[LevelData] = tier_pool.duplicate()
+		_shuffle_array(pool_copy, rng)
+		var candidate: Array[LevelData] = pool_copy.slice(0, count)
+		if count >= 3 and _has_clump_of_three(candidate):
+			continue
+		return candidate
+	var fallback: Array[LevelData] = tier_pool.duplicate()
+	_shuffle_array(fallback, rng)
+	return fallback.slice(0, count)
 
 
 func _sample_tier_with_cooldown(tier_pool: Array[LevelData], prev_tier_levels: Array[LevelData], count: int = 5, avoid_start: LevelData = null, tier_num: int = 1, rng: RandomNumberGenerator = null) -> Array[LevelData]:
@@ -572,6 +581,7 @@ func _resolve_run_clumps(run: Array[LevelData]) -> Array[LevelData]:
 		var best_candidate: Array[LevelData] = run
 		var best_clumps: int = _count_clumps_of_three(run)
 
+		# Pass 1: Try swaps preserving tier start
 		for i in range(run.size() - 2):
 			if run[i].puzzle_type == run[i + 1].puzzle_type and run[i + 1].puzzle_type == run[i + 2].puzzle_type:
 				var target_indices: Array[int] = [i, i + 1, i + 2]
@@ -596,28 +606,32 @@ func _resolve_run_clumps(run: Array[LevelData]) -> Array[LevelData]:
 
 		if best_candidate != run:
 			run = best_candidate
-		else:
-			# If single swap stalled, try any pair swap within non-start tier positions
-			for i in range(run.size() - 2):
-				if run[i].puzzle_type == run[i + 1].puzzle_type and run[i + 1].puzzle_type == run[i + 2].puzzle_type:
-					var target_idx: int = i + 1
+			continue
+
+		# Pass 2: If stalled, try intra-tier swaps including boundary tier-start positions
+		for i in range(run.size() - 2):
+			if run[i].puzzle_type == run[i + 1].puzzle_type and run[i + 1].puzzle_type == run[i + 2].puzzle_type:
+				var target_indices: Array[int] = [i, i + 1, i + 2]
+				for target_idx in target_indices:
 					var tier_range: Vector2i = _get_tier_range(target_idx, total_count)
 					var tier_start: int = tier_range.x
 					var tier_end: int = tier_range.y
-					for p1 in range(tier_start + 1, tier_end + 1):
-						for p2 in range(p1 + 1, tier_end + 1):
+
+					for k in range(tier_start, tier_end + 1):
+						if k != target_idx and run[k].puzzle_type != run[target_idx].puzzle_type:
 							var cand: Array[LevelData] = run.duplicate()
-							var temp: LevelData = cand[p1]
-							cand[p1] = cand[p2]
-							cand[p2] = temp
+							var temp: LevelData = cand[target_idx]
+							cand[target_idx] = cand[k]
+							cand[k] = temp
 							var c_count: int = _count_clumps_of_three(cand)
 							if c_count < best_clumps:
 								best_clumps = c_count
 								best_candidate = cand
-			if best_candidate != run:
-				run = best_candidate
-			else:
-				break
+
+		if best_candidate != run:
+			run = best_candidate
+		else:
+			break
 	return run
 
 

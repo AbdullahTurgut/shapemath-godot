@@ -79,10 +79,17 @@ func _run_tests() -> void:
 	bad_hint_mode.square_fill_piece_symbols = easy_res.square_fill_piece_symbols
 	bad_hint_mode.square_fill_hint_mode = 5 # invalid
 	assert(SquareFillValidator.validate(bad_hint_mode).size() > 0, "Invalid hint mode fails validator")
-	print("-> TEST 2 PASSED: SquareFillValidator validated all edge cases.")
+
+	# Duplicate visual appearance validation
+	var bad_dup_visual := LevelData.new()
+	bad_dup_visual.puzzle_type = LevelData.PuzzleType.SQUARE_FILL
+	bad_dup_visual.square_fill_piece_colors = [Color.BLUE, Color.BLUE, Color.RED, Color.RED, Color.GREEN, Color.GREEN, Color.WHITE, Color.WHITE, Color.BLACK]
+	bad_dup_visual.square_fill_piece_symbols = ["▲", "▲", "■", "■", "●", "●", "★", "★", "◆"]
+	assert(SquareFillValidator.validate(bad_dup_visual).size() > 0, "Duplicate visual appearance fails validator")
+	print("-> TEST 2 PASSED: SquareFillValidator validated all edge cases & visual uniqueness.")
 
 	# [SECTION 3] PRODUCTION POOL INTEGRITY
-	print("\n[TEST 3] Production Pool Integrity (54 levels, no SQUARE_FILL)")
+	print("\n[TEST 3] Production Pool Integrity (57 levels, 3 production SQUARE_FILL levels)")
 	var main_scene = load("res://scenes/main.tscn")
 	var main_node = main_scene.instantiate()
 	root.add_child(main_node)
@@ -90,10 +97,31 @@ func _run_tests() -> void:
 
 	var lm: LevelManager = main_node.get_node("LevelManager")
 	lm._ensure_levels_loaded()
-	assert(lm.levels.size() == 54, "Production level pool count remains exactly 54")
+	assert(lm.levels.size() == 57, "Production level pool count is exactly 57 (got %d)" % lm.levels.size())
+	var sq_prod_count: int = 0
 	for lvl in lm.levels:
-		assert(lvl.puzzle_type != LevelData.PuzzleType.SQUARE_FILL, "Production pool excludes SQUARE_FILL")
-	print("-> TEST 3 PASSED: Production pool remains 54 levels with 0 SQUARE_FILL contamination.")
+		assert(not lvl.resource_path.contains("/samples/"), "Samples excluded from production pool")
+		if lvl.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+			sq_prod_count += 1
+			var errs: Array[String] = SquareFillValidator.validate(lvl)
+			assert(errs.is_empty(), "Production SQUARE_FILL %s failed validator: %s" % [lvl.resource_path, ", ".join(errs)])
+	assert(sq_prod_count == 3, "Exactly 3 production SQUARE_FILL levels (got %d)" % sq_prod_count)
+	assert(lm.levels[54].puzzle_type == LevelData.PuzzleType.SQUARE_FILL and lm.levels[54].tier == 1, "Level 55 is Tier 1 SQUARE_FILL")
+	assert(lm.levels[55].puzzle_type == LevelData.PuzzleType.SQUARE_FILL and lm.levels[55].tier == 2, "Level 56 is Tier 2 SQUARE_FILL")
+	assert(lm.levels[56].puzzle_type == LevelData.PuzzleType.SQUARE_FILL and lm.levels[56].tier == 3, "Level 57 is Tier 3 SQUARE_FILL")
+
+	# Specific validation for Level 56 Medium two-layer visual clarity
+	var lvl56: LevelData = lm.levels[55]
+	assert(lvl56.square_fill_hint_mode == 1, "Level 56 hint mode is SUBTLE (1)")
+	assert(lvl56.square_fill_shelf_order == [4, 0, 7, 1, 8, 3, 6, 2, 5], "Level 56 shelf is shuffled")
+	var seen_symbols: Dictionary = {}
+	for s_i in range(9):
+		var sym: String = lvl56.square_fill_piece_symbols[s_i]
+		assert(not seen_symbols.has(sym), "Level 56 symbol '%s' at index %d is unique across all 9 pieces" % [sym, s_i])
+		seen_symbols[sym] = true
+		assert(not sym in ["1", "2", "3", "4", "5", "6", "7", "8", "9"], "No direct digit answer keys in Medium")
+		assert(not sym in ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"], "No direct Roman numeral answer keys in Medium")
+	print("-> TEST 3 PASSED: Production pool contains 57 levels with 3 validated SQUARE_FILL levels (Level 56 two-layer clarity verified).")
 
 	# [SECTION 4] ASYMMETRIC DROP FAIRNESS MODEL
 	print("\n[TEST 4] Asymmetric Drop Fairness (Inner 45px vs Outer 65px)")
@@ -314,7 +342,95 @@ func _run_tests() -> void:
 
 	print("-> TEST 9 PASSED: Clean cross-puzzle transitions verified.")
 
+	# [SECTION 10] 100-RUN STANDARD SIMULATION
+	print("\n[TEST 10] 100-Run Standard Simulation & Production Square Fill Exposure")
+	var sim_rng := RandomNumberGenerator.new()
+	sim_rng.seed = 424242
+	var total_std_runs: int = 100
+	var prev_std_run: Array[LevelData] = []
+	var std_zero_overlap: int = 0
+	var sq_appearances_std: int = 0
+	var runs_with_sq: int = 0
+	var sq_by_tier: Dictionary = { 1: 0, 2: 0, 3: 0 }
+
+	var std_sim_start: int = Time.get_ticks_usec()
+	for r_i in range(total_std_runs):
+		var run: Array[LevelData] = lm.generate_run_sequence(sim_rng)
+		assert(run.size() == 15, "Run %d has 15 levels" % (r_i + 1))
+		for k in range(5): assert(run[k].tier == 1, "Run %d lvl %d is Tier 1" % [r_i + 1, k + 1])
+		for k in range(5, 10): assert(run[k].tier == 2, "Run %d lvl %d is Tier 2" % [r_i + 1, k + 1])
+		for k in range(10, 15): assert(run[k].tier == 3, "Run %d lvl %d is Tier 3" % [r_i + 1, k + 1])
+
+		var run_seen: Dictionary = {}
+		var run_has_sq: bool = false
+		for lvl in run:
+			assert(not run_seen.has(lvl), "No duplicate level in run %d: %s" % [r_i + 1, lvl.resource_path])
+			run_seen[lvl] = true
+			assert(not lvl.resource_path.contains("/samples/"), "No samples in production run")
+			if lvl.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+				sq_appearances_std += 1
+				sq_by_tier[lvl.tier] += 1
+				run_has_sq = true
+
+		if run_has_sq:
+			runs_with_sq += 1
+
+		assert(not lm._has_clump_of_three(run), "Run %d has no 3-type clumps" % (r_i + 1))
+
+		if not prev_std_run.is_empty():
+			var ov: int = 0
+			for lvl in run:
+				if prev_std_run.has(lvl): ov += 1
+			if ov == 0:
+				std_zero_overlap += 1
+
+		prev_std_run = run.duplicate()
+
+	var std_sim_elapsed: int = Time.get_ticks_usec() - std_sim_start
+	var avg_std_ms: float = float(std_sim_elapsed) / float(total_std_runs) / 1000.0
+	print("   • 100 Standard runs generated in %.2f ms (Average: %.3f ms/run)" % [float(std_sim_elapsed) / 1000.0, avg_std_ms])
+	print("   • Zero-overlap consecutive runs: %d / %d (%.1f%%)" % [std_zero_overlap, total_std_runs - 1, (float(std_zero_overlap) / float(total_std_runs - 1)) * 100.0])
+	print("   • Square Fill total appearances: %d / 1500 levels (%.2f%%)" % [sq_appearances_std, (float(sq_appearances_std) / 1500.0) * 100.0])
+	print("   • Runs with >= 1 Square Fill: %d / 100 (%.1f%%)" % [runs_with_sq, float(runs_with_sq)])
+	print("   • Square Fill by tier: Easy %d, Medium %d, Hard %d" % [sq_by_tier[1], sq_by_tier[2], sq_by_tier[3]])
+	assert(std_zero_overlap == total_std_runs - 1, "100% zero-overlap across consecutive runs")
+	assert(sq_appearances_std > 0, "Square Fill appeared naturally in Standard runs")
+	print("-> TEST 10 PASSED: 100-run Standard simulation verified.")
+
+	# [SECTION 11] 30-DATE DAILY CHALLENGE SIMULATION
+	print("\n[TEST 11] 30-Date Daily Challenge Simulation & Determinism")
+	var sq_daily_count: int = 0
+	var daily_sim_start: int = Time.get_ticks_usec()
+	for d_idx in range(30):
+		var date_key: int = 20260901 + d_idx
+		var daily_seq_1: Array[LevelData] = lm.generate_daily_run_sequence(date_key)
+		var daily_seq_2: Array[LevelData] = lm.generate_daily_run_sequence(date_key)
+
+		assert(daily_seq_1.size() == 10, "Daily challenge has 10 levels")
+		assert(daily_seq_2.size() == 10, "Daily repeat has 10 levels")
+
+		for k in range(10):
+			assert(daily_seq_1[k] == daily_seq_2[k], "Date %d index %d strictly deterministic" % [date_key, k])
+
+		for k in range(3): assert(daily_seq_1[k].tier == 1, "Slot %d is Tier 1" % k)
+		for k in range(3, 7): assert(daily_seq_1[k].tier == 2, "Slot %d is Tier 2" % k)
+		for k in range(7, 10): assert(daily_seq_1[k].tier == 3, "Slot %d is Tier 3" % k)
+
+		var daily_seen: Dictionary = {}
+		for lvl in daily_seq_1:
+			assert(not daily_seen.has(lvl), "No duplicate in daily %d: %s" % [date_key, lvl.resource_path])
+			daily_seen[lvl] = true
+			assert(not lvl.resource_path.contains("/samples/"), "No samples in Daily challenge")
+			if lvl.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+				sq_daily_count += 1
+
+	var daily_sim_elapsed: int = Time.get_ticks_usec() - daily_sim_start
+	var avg_daily_ms: float = float(daily_sim_elapsed) / 30.0 / 1000.0
+	print("   • 30 Daily challenges generated in %.2f ms (Average: %.3f ms/challenge)" % [float(daily_sim_elapsed) / 1000.0, avg_daily_ms])
+	print("   • Square Fill total Daily appearances: %d / 300 levels (%.2f%%)" % [sq_daily_count, (float(sq_daily_count) / 300.0) * 100.0])
+	print("-> TEST 11 PASSED: 30-date Daily challenge determinism & structure verified.")
+
 	print("\n================================================================================")
-	print(">>> ALL STEP 21B HARDENING & PRODUCTION READINESS TESTS PASSED 100%! <<<")
+	print(">>> ALL STEP 21C PRODUCTION ROLLOUT & GENERATOR TESTS PASSED 100%! <<<")
 	print("================================================================================")
 	quit(0)

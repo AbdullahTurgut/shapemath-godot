@@ -128,7 +128,7 @@ func _run_tests() -> void:
 	lm.summary_delay = 0.01
 	lm.failure_delay = 0.01
 
-	assert(lm.levels.size() == 54, "Scenario T: Pool contains exactly 54 levels")
+	assert(lm.levels.size() == 57, "Scenario T: Pool contains exactly 57 levels")
 
 	start_btn.pressed.emit()
 	await process_frame
@@ -150,6 +150,19 @@ func _run_tests() -> void:
 			lm.shape_piece_a.global_position = lm.shape_piece_b.global_position
 			await _sync_physics()
 			lm._on_shape_piece_dropped(lm.shape_piece_a)
+		elif cur_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+			for p in lm.square_fill_pieces:
+				var target_slot: SquareFillSlot = null
+				for s in lm.square_fill_slots:
+					if s.slot_index == p.target_slot_index:
+						target_slot = s
+						break
+				assert(target_slot != null, "Target slot found for piece")
+				p.reset_piece()
+				p.global_position = target_slot.global_position
+				await _sync_physics()
+				lm._on_square_fill_piece_dropped(p)
+			return
 		else:
 			var cp: DraggablePiece = null
 			for p in lm.math_pieces:
@@ -174,6 +187,18 @@ func _run_tests() -> void:
 			await _sync_physics()
 			lm._on_shape_piece_dropped(lm.shape_piece_a)
 			lm.shape_piece_a.match_id = old_m
+		elif c_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+			var p: DraggablePiece = lm.square_fill_pieces[0]
+			var wrong_slot: SquareFillSlot = null
+			for s in lm.square_fill_slots:
+				if s.slot_index != p.target_slot_index:
+					wrong_slot = s
+					break
+			assert(wrong_slot != null, "Wrong slot found")
+			p.reset_piece()
+			p.global_position = wrong_slot.global_position
+			await _sync_physics()
+			lm._on_square_fill_piece_dropped(p)
 		else:
 			var wp: DraggablePiece = null
 			for p in lm.math_pieces:
