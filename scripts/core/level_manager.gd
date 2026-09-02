@@ -70,6 +70,9 @@ var personal_best_streak: int = 0
 var personal_best_at_run_start: int = 0
 var record_broken_this_run: bool = false
 var mistakes_this_run: int = 0
+var puzzle_solve_recorded_this_level: bool = false
+var run_completion_recorded_this_run: bool = false
+var run_start_recorded_this_run: bool = false
 
 var active_tween: Tween = null
 var label_tween: Tween = null
@@ -438,6 +441,10 @@ func load_level(index: int) -> void:
 	_ensure_levels_loaded()
 	if current_run_levels.is_empty():
 		generate_run_sequence()
+		if not run_start_recorded_this_run:
+			run_start_recorded_this_run = true
+			if save_manager:
+				save_manager.record_run_started()
 
 	if current_run_levels.is_empty():
 		push_error("LevelManager: No LevelData resources in current run!")
@@ -455,6 +462,7 @@ func load_level(index: int) -> void:
 	is_completed = false
 	is_run_completed = false
 	is_run_failed = false
+	puzzle_solve_recorded_this_level = false
 
 	if active_tween and active_tween.is_valid():
 		active_tween.kill()
@@ -949,6 +957,12 @@ func _on_completion() -> void:
 
 	_update_streak_ui(true)
 
+	# Lifetime Statistics: Record puzzle solve exactly once
+	if not puzzle_solve_recorded_this_level:
+		puzzle_solve_recorded_this_level = true
+		if save_manager:
+			save_manager.record_puzzle_solved()
+
 	if next_button:
 		next_button.visible = false
 
@@ -961,6 +975,12 @@ func _on_completion() -> void:
 	else:
 		_cancel_pending_transition()
 		is_run_completed = true
+		if not run_completion_recorded_this_run:
+			run_completion_recorded_this_run = true
+			var is_perfect: bool = (mistakes_this_run == 0)
+			if save_manager:
+				save_manager.record_run_completed(is_perfect)
+
 		summary_tween = create_tween()
 		summary_tween.tween_interval(summary_delay)
 		summary_tween.finished.connect(_show_run_complete_overlay)
@@ -1081,9 +1101,15 @@ func start_new_run() -> void:
 
 	is_run_completed = false
 	is_run_failed = false
+	run_completion_recorded_this_run = false
+	puzzle_solve_recorded_this_level = false
 	current_lives = max_lives
 	current_streak = 0
 	best_streak_this_run = 0
+
+	run_start_recorded_this_run = true
+	if save_manager:
+		save_manager.record_run_started()
 
 	if record_banner:
 		record_banner.visible = false
@@ -1235,6 +1261,9 @@ func cleanup_run() -> void:
 	is_completed = false
 	is_run_completed = false
 	is_run_failed = false
+	run_start_recorded_this_run = false
+	run_completion_recorded_this_run = false
+	puzzle_solve_recorded_this_level = false
 	mistakes_this_run = 0
 
 	if save_manager:

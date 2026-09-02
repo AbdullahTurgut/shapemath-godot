@@ -20,8 +20,16 @@ var quit_handler: Callable = Callable()
 @onready var main_menu: Control = $MainMenu
 @onready var personal_best_label: Label = $MainMenu/PersonalBestLabel
 @onready var start_game_button: Button = $MainMenu/StartGameButton
+@onready var statistics_button: Button = $MainMenu/StatisticsButton
 @onready var settings_button: Button = $MainMenu/SettingsButton
 @onready var in_game_menu_button: Button = $InGameMenuButton
+@onready var statistics_overlay: Control = $StatisticsOverlay
+@onready var statistics_close_button: Button = $StatisticsOverlay/Card/CloseButton
+@onready var stat_best_streak_value: Label = $StatisticsOverlay/Card/BestStreakValue
+@onready var stat_puzzles_solved_value: Label = $StatisticsOverlay/Card/PuzzlesSolvedValue
+@onready var stat_runs_completed_value: Label = $StatisticsOverlay/Card/RunsCompletedValue
+@onready var stat_perfect_runs_value: Label = $StatisticsOverlay/Card/PerfectRunsValue
+@onready var stat_success_rate_value: Label = $StatisticsOverlay/Card/SuccessRateValue
 @onready var settings_overlay: Control = $SettingsOverlay
 @onready var sound_toggle_button: Button = $SettingsOverlay/Card/SoundToggleButton
 @onready var haptics_toggle_button: Button = $SettingsOverlay/Card/HapticsToggleButton
@@ -47,29 +55,34 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _handle_back_request() -> void:
-	# Priority 1: Settings overlay is open
+	# Priority 1: Statistics overlay is open
+	if statistics_overlay and statistics_overlay.visible:
+		_on_statistics_close_pressed()
+		return
+
+	# Priority 2: Settings overlay is open
 	if settings_overlay and settings_overlay.visible:
 		_on_settings_close_pressed()
 		return
 
-	# Priority 2: Run failure overlay is open
+	# Priority 3: Run failure overlay is open
 	if run_failure_overlay and run_failure_overlay.visible:
 		return_to_main_menu()
 		return
 
-	# Priority 3: Run complete overlay is open
+	# Priority 4: Run complete overlay is open
 	if run_complete_overlay and run_complete_overlay.visible:
 		return_to_main_menu()
 		return
 
-	# Priority 4: Active gameplay -> opens Settings overlay (origin = GAMEPLAY)
+	# Priority 5: Active gameplay -> opens Settings overlay (origin = GAMEPLAY)
 	if current_state == AppState.PLAYING:
 		_on_in_game_menu_pressed()
 		return
 
-	# Priority 5: Main Menu -> exit app
+	# Priority 6: Main Menu -> exit app
 	if current_state == AppState.MAIN_MENU:
-		if quit_handler.is_valid():
+		if not quit_handler.is_null():
 			quit_handler.call()
 		else:
 			get_tree().quit()
@@ -88,6 +101,10 @@ func _ready() -> void:
 
 	if start_game_button and not start_game_button.pressed.is_connected(start_game_from_menu):
 		start_game_button.pressed.connect(start_game_from_menu)
+	if statistics_button and not statistics_button.pressed.is_connected(_on_statistics_button_pressed):
+		statistics_button.pressed.connect(_on_statistics_button_pressed)
+	if statistics_close_button and not statistics_close_button.pressed.is_connected(_on_statistics_close_pressed):
+		statistics_close_button.pressed.connect(_on_statistics_close_pressed)
 	if settings_button and not settings_button.pressed.is_connected(_on_settings_button_pressed):
 		settings_button.pressed.connect(_on_settings_button_pressed)
 	if in_game_menu_button and not in_game_menu_button.pressed.is_connected(_on_in_game_menu_pressed):
@@ -123,6 +140,12 @@ func _show_main_menu() -> void:
 		main_menu.visible = true
 	if settings_overlay:
 		settings_overlay.visible = false
+	if statistics_overlay:
+		statistics_overlay.visible = false
+	if run_complete_overlay:
+		run_complete_overlay.visible = false
+	if run_failure_overlay:
+		run_failure_overlay.visible = false
 
 	_set_gameplay_visible(false)
 
@@ -137,8 +160,55 @@ func _refresh_main_menu() -> void:
 		personal_best_label.text = "Kişisel Rekor: x%d" % pb
 
 
+func _on_statistics_button_pressed() -> void:
+	if settings_overlay:
+		settings_overlay.visible = false
+	_refresh_statistics_ui()
+	if statistics_overlay:
+		statistics_overlay.visible = true
+
+
+func _on_statistics_close_pressed() -> void:
+	if statistics_overlay:
+		statistics_overlay.visible = false
+
+
+func _refresh_statistics_ui() -> void:
+	var pb: int = 0
+	var solved: int = 0
+	var completed: int = 0
+	var perfect: int = 0
+	var rate: int = 0
+
+	if save_manager:
+		pb = save_manager.get_personal_best_streak()
+		solved = save_manager.get_total_puzzles_solved()
+		completed = save_manager.get_total_runs_completed()
+		perfect = save_manager.get_total_perfect_runs()
+		rate = save_manager.get_success_rate_percentage()
+	elif level_manager and level_manager.save_manager:
+		pb = level_manager.save_manager.get_personal_best_streak()
+		solved = level_manager.save_manager.get_total_puzzles_solved()
+		completed = level_manager.save_manager.get_total_runs_completed()
+		perfect = level_manager.save_manager.get_total_perfect_runs()
+		rate = level_manager.save_manager.get_success_rate_percentage()
+
+	if stat_best_streak_value:
+		stat_best_streak_value.text = "x%d" % pb
+	if stat_puzzles_solved_value:
+		stat_puzzles_solved_value.text = "%d" % solved
+	if stat_runs_completed_value:
+		stat_runs_completed_value.text = "%d" % completed
+	if stat_perfect_runs_value:
+		stat_perfect_runs_value.text = "%d" % perfect
+	if stat_success_rate_value:
+		stat_success_rate_value.text = "%d%%" % rate
+
+
 func _on_settings_button_pressed() -> void:
 	settings_origin = SettingsOrigin.MAIN_MENU
+	if statistics_overlay:
+		statistics_overlay.visible = false
 	_refresh_settings_ui()
 	if settings_return_button:
 		settings_return_button.visible = false
@@ -148,6 +218,8 @@ func _on_settings_button_pressed() -> void:
 
 func _on_in_game_menu_pressed() -> void:
 	settings_origin = SettingsOrigin.GAMEPLAY
+	if statistics_overlay:
+		statistics_overlay.visible = false
 	_refresh_settings_ui()
 	if settings_return_button:
 		settings_return_button.visible = true
@@ -215,6 +287,8 @@ func start_game_from_menu() -> void:
 		main_menu.visible = false
 	if settings_overlay:
 		settings_overlay.visible = false
+	if statistics_overlay:
+		statistics_overlay.visible = false
 
 	_set_gameplay_visible(true)
 

@@ -9,6 +9,10 @@ var sound_enabled: bool = true
 var haptics_enabled: bool = true
 var personal_best_streak: int = 0
 var tutorial_completed: bool = false
+var total_runs_started: int = 0
+var total_runs_completed: int = 0
+var total_perfect_runs: int = 0
+var total_puzzles_solved: int = 0
 
 
 func _ready() -> void:
@@ -23,6 +27,10 @@ func load_data() -> void:
 		haptics_enabled = true
 		personal_best_streak = 0
 		tutorial_completed = false
+		total_runs_started = 0
+		total_runs_completed = 0
+		total_perfect_runs = 0
+		total_puzzles_solved = 0
 		return
 
 	var err: Error = config.load(save_path)
@@ -32,12 +40,20 @@ func load_data() -> void:
 		haptics_enabled = true
 		personal_best_streak = 0
 		tutorial_completed = false
+		total_runs_started = 0
+		total_runs_completed = 0
+		total_perfect_runs = 0
+		total_puzzles_solved = 0
 		return
 
 	sound_enabled = bool(config.get_value("settings", "sound_enabled", true))
 	haptics_enabled = bool(config.get_value("settings", "haptics_enabled", true))
 	personal_best_streak = int(config.get_value("progress", "personal_best_streak", 0))
 	tutorial_completed = bool(config.get_value("progress", "tutorial_completed", false))
+	total_runs_started = int(config.get_value("progress", "total_runs_started", 0))
+	total_runs_completed = int(config.get_value("progress", "total_runs_completed", 0))
+	total_perfect_runs = int(config.get_value("progress", "total_perfect_runs", 0))
+	total_puzzles_solved = int(config.get_value("progress", "total_puzzles_solved", 0))
 
 
 func save_data() -> bool:
@@ -46,6 +62,10 @@ func save_data() -> bool:
 	config.set_value("settings", "haptics_enabled", haptics_enabled)
 	config.set_value("progress", "personal_best_streak", personal_best_streak)
 	config.set_value("progress", "tutorial_completed", tutorial_completed)
+	config.set_value("progress", "total_runs_started", total_runs_started)
+	config.set_value("progress", "total_runs_completed", total_runs_completed)
+	config.set_value("progress", "total_perfect_runs", total_perfect_runs)
+	config.set_value("progress", "total_puzzles_solved", total_puzzles_solved)
 
 	var err: Error = config.save(save_path)
 	if err != OK:
@@ -94,4 +114,43 @@ func set_tutorial_completed(value: bool) -> void:
 	if tutorial_completed != value:
 		tutorial_completed = value
 		save_data()
+
+
+func get_total_runs_started() -> int:
+	return total_runs_started
+
+
+func get_total_runs_completed() -> int:
+	return total_runs_completed
+
+
+func get_total_perfect_runs() -> int:
+	return total_perfect_runs
+
+
+func get_total_puzzles_solved() -> int:
+	return total_puzzles_solved
+
+
+func get_success_rate_percentage() -> int:
+	if total_runs_started <= 0:
+		return 0
+	return int(round((float(total_runs_completed) / float(total_runs_started)) * 100.0))
+
+
+func record_run_started() -> void:
+	total_runs_started += 1
+	save_data()
+
+
+func record_puzzle_solved() -> void:
+	total_puzzles_solved += 1
+	save_data()
+
+
+func record_run_completed(is_perfect: bool) -> void:
+	total_runs_completed += 1
+	if is_perfect:
+		total_perfect_runs += 1
+	save_data()
 
