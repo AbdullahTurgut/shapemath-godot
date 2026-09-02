@@ -13,9 +13,6 @@ size = Vector2(140, 140)
 script = ExtResource("1_main")
 
 [node name="Background" type="ColorRect" parent="."]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 offset_right = 720.0
 offset_bottom = 1280.0
 mouse_filter = 2
@@ -185,23 +182,18 @@ vertical_alignment = 1
 [node name="MainMenu" type="Control" parent="."]
 z_index = 10
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchors_preset = 0
 offset_right = 720.0
 offset_bottom = 1280.0
-grow_horizontal = 2
-grow_vertical = 2
 
 [node name="MenuBackground" type="ColorRect" parent="MainMenu"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = 720.0
-offset_bottom = 1280.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 color = Color(0.117647, 0.133333, 0.176471, 1)
 
 [node name="DecoShape1" type="Polygon2D" parent="MainMenu"]
@@ -282,31 +274,33 @@ text = "Ayarlar"
 visible = false
 z_index = 25
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchors_preset = 0
 offset_right = 720.0
 offset_bottom = 1280.0
-grow_horizontal = 2
-grow_vertical = 2
 
 [node name="DimBackground" type="ColorRect" parent="SettingsOverlay"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = 720.0
-offset_bottom = 1280.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 color = Color(0.0627451, 0.0705882, 0.0980392, 0.88)
 
 [node name="Card" type="ColorRect" parent="SettingsOverlay"]
-layout_mode = 0
-offset_left = 90.0
-offset_top = 340.0
-offset_right = 630.0
-offset_bottom = 900.0
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -270.0
+offset_top = -280.0
+offset_right = 270.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
 color = Color(0.14902, 0.176471, 0.247059, 1)
 
 [node name="TitleLabel" type="Label" parent="SettingsOverlay/Card"]
@@ -376,31 +370,33 @@ text = "Kapat"
 visible = false
 z_index = 25
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchors_preset = 0
 offset_right = 720.0
 offset_bottom = 1280.0
-grow_horizontal = 2
-grow_vertical = 2
 
 [node name="DimBackground" type="ColorRect" parent="StatisticsOverlay"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = 720.0
-offset_bottom = 1280.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 color = Color(0.0627451, 0.0705882, 0.0980392, 0.88)
 
 [node name="Card" type="ColorRect" parent="StatisticsOverlay"]
-layout_mode = 0
-offset_left = 80.0
-offset_top = 280.0
-offset_right = 640.0
-offset_bottom = 920.0
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -320.0
+offset_right = 280.0
+offset_bottom = 320.0
+grow_horizontal = 2
+grow_vertical = 2
 color = Color(0.14902, 0.176471, 0.247059, 1)
 
 [node name="TitleLabel" type="Label" parent="StatisticsOverlay/Card"]
@@ -530,31 +526,33 @@ text = "Kapat"
 visible = false
 z_index = 20
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchors_preset = 0
 offset_right = 720.0
 offset_bottom = 1280.0
-grow_horizontal = 2
-grow_vertical = 2
 
 [node name="DimBackground" type="ColorRect" parent="RunCompleteOverlay"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = 720.0
-offset_bottom = 1280.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 color = Color(0.0627451, 0.0705882, 0.0980392, 0.88)
 
 [node name="Card" type="ColorRect" parent="RunCompleteOverlay"]
-layout_mode = 0
-offset_left = 90.0
-offset_top = 320.0
-offset_right = 630.0
-offset_bottom = 920.0
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -270.0
+offset_top = -300.0
+offset_right = 270.0
+offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
 color = Color(0.145098, 0.164706, 0.219608, 1)
 
 [node name="CardBorder" type="Line2D" parent="RunCompleteOverlay/Card"]
@@ -622,31 +620,33 @@ text = "Ana Menü"
 visible = false
 z_index = 20
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchors_preset = 0
 offset_right = 720.0
 offset_bottom = 1280.0
-grow_horizontal = 2
-grow_vertical = 2
 
 [node name="DimBackground" type="ColorRect" parent="RunFailureOverlay"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = 720.0
-offset_bottom = 1280.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 color = Color(0.0627451, 0.0705882, 0.0980392, 0.88)
 
 [node name="Card" type="ColorRect" parent="RunFailureOverlay"]
-layout_mode = 0
-offset_left = 90.0
-offset_top = 320.0
-offset_right = 630.0
-offset_bottom = 920.0
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -270.0
+offset_top = -300.0
+offset_right = 270.0
+offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
 color = Color(0.145098, 0.164706, 0.219608, 1)
 
 [node name="CardBorder" type="Line2D" parent="RunFailureOverlay/Card"]

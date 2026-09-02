@@ -99,6 +99,32 @@ var shape_pieces: Array[DraggablePiece] = []
 var shape_piece_a: DraggablePiece = null
 var shape_piece_b: DraggablePiece = null
 
+var gameplay_y_offset: float = 0.0
+
+
+func update_responsive_layout(vp_size: Vector2, _safe_top: float) -> void:
+	if vp_size.y > 1280.0:
+		var extra_h: float = vp_size.y - 1280.0
+		gameplay_y_offset = minf(extra_h * 0.4, 120.0)
+	else:
+		gameplay_y_offset = 0.0
+	_reposition_gameplay_elements()
+
+
+func _reposition_gameplay_elements() -> void:
+	if prompt_label:
+		prompt_label.position.y = 200.0 + gameplay_y_offset
+	if success_label:
+		success_label.position.y = 330.0 + gameplay_y_offset
+	if next_button:
+		next_button.position.y = 410.0 + gameplay_y_offset
+	if onboarding_hint_label:
+		onboarding_hint_label.position.y = 370.0 + gameplay_y_offset
+	if record_banner:
+		record_banner.position.y = 310.0 + gameplay_y_offset
+	if math_target_zone:
+		math_target_zone.position = Vector2(360.0, 540.0 + gameplay_y_offset)
+
 
 func _ready() -> void:
 	if save_manager:
@@ -669,6 +695,8 @@ func load_level(index: int) -> void:
 		label_tween.kill()
 		label_tween = null
 
+	_reposition_gameplay_elements()
+
 	# Reset UI
 	if record_banner:
 		record_banner.visible = false
@@ -776,6 +804,7 @@ func _setup_math_level() -> void:
 		math_container.visible = true
 
 	if math_target_zone:
+		math_target_zone.position = Vector2(360.0, 540.0 + gameplay_y_offset)
 		var placeholder_lbl: Label = math_target_zone.get_node_or_null("PlaceholderLabel") as Label
 		if placeholder_lbl:
 			if not current_level_data.target_display.is_empty():
@@ -798,7 +827,7 @@ func _setup_math_level() -> void:
 
 	for i in range(count):
 		var piece: DraggablePiece = piece_scene.instantiate() as DraggablePiece
-		var spawn_pos: Vector2 = Vector2(step_x * (i + 1), 920.0)
+		var spawn_pos: Vector2 = Vector2(step_x * (i + 1), 920.0 + gameplay_y_offset)
 		piece.piece_text = choices[i]
 
 		if i < current_level_data.choice_colors.size() and current_level_data.choice_colors[i] != Color.BLACK:
@@ -836,7 +865,7 @@ func _setup_shape_level() -> void:
 		shape_container.add_child(piece_a)
 	else:
 		add_child(piece_a)
-	piece_a.set_origin_position(current_level_data.shape_a_spawn_pos)
+	piece_a.set_origin_position(current_level_data.shape_a_spawn_pos + Vector2(0.0, gameplay_y_offset))
 	if not current_level_data.piece_a_polygon.is_empty():
 		piece_a.set_custom_polygon(current_level_data.piece_a_polygon)
 	piece_a.piece_dropped.connect(_on_shape_piece_dropped)
@@ -853,7 +882,7 @@ func _setup_shape_level() -> void:
 		shape_container.add_child(piece_b)
 	else:
 		add_child(piece_b)
-	piece_b.set_origin_position(current_level_data.shape_b_spawn_pos)
+	piece_b.set_origin_position(current_level_data.shape_b_spawn_pos + Vector2(0.0, gameplay_y_offset))
 	if not current_level_data.piece_b_polygon.is_empty():
 		piece_b.set_custom_polygon(current_level_data.piece_b_polygon)
 	piece_b.piece_dropped.connect(_on_shape_piece_dropped)
@@ -888,8 +917,8 @@ func _process_shape_success(_piece1: DraggablePiece, _piece2: DraggablePiece) ->
 	is_completed = true
 	print("MATCH SUCCESS: Level %d shape matched!" % [current_level_index + 1])
 
-	var target_a: Vector2 = current_level_data.shape_a_target_pos
-	var target_b: Vector2 = current_level_data.shape_b_target_pos
+	var target_a: Vector2 = current_level_data.shape_a_target_pos + Vector2(0.0, gameplay_y_offset)
+	var target_b: Vector2 = current_level_data.shape_b_target_pos + Vector2(0.0, gameplay_y_offset)
 
 	var tween_a: Tween = null
 	var tween_b: Tween = null

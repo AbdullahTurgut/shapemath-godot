@@ -14,6 +14,7 @@ var current_state: AppState = AppState.MAIN_MENU
 var settings_origin: SettingsOrigin = SettingsOrigin.MAIN_MENU
 var quit_handler: Callable = Callable()
 
+@onready var background: ColorRect = $Background
 @onready var save_manager: SaveManager = $SaveManager
 @onready var feedback_manager: FeedbackManager = $FeedbackManager
 @onready var level_manager: LevelManager = $LevelManager
@@ -49,6 +50,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_handle_back_request()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		update_responsive_layout()
 		if current_state == AppState.MAIN_MENU:
 			_refresh_main_menu()
 
@@ -145,11 +147,96 @@ func _ready() -> void:
 	if failure_menu_button and not failure_menu_button.pressed.is_connected(return_to_main_menu):
 		failure_menu_button.pressed.connect(return_to_main_menu)
 
+	var vp: Viewport = get_viewport()
+	if vp and not vp.size_changed.is_connected(_on_viewport_size_changed):
+		vp.size_changed.connect(_on_viewport_size_changed)
+
+	update_responsive_layout()
 	_show_main_menu()
+
+
+func get_safe_top_inset() -> float:
+	var win_size: Vector2i = DisplayServer.window_get_size()
+	var safe_rect: Rect2i = DisplayServer.get_display_safe_area()
+	var vp_size: Vector2 = get_viewport_rect().size
+	var top_inset: float = 0.0
+	if win_size.y > 0 and safe_rect.position.y > 0:
+		var scale_factor: float = vp_size.y / float(win_size.y)
+		top_inset = float(safe_rect.position.y) * scale_factor
+	return maxf(top_inset, 24.0)
+
+
+func _on_viewport_size_changed() -> void:
+	update_responsive_layout()
+
+
+func update_responsive_layout() -> void:
+	var vp_size: Vector2 = get_viewport_rect().size
+	var safe_top: float = get_safe_top_inset()
+
+	# 1. Fullscreen backgrounds and overlay root sizes
+	if background:
+		background.size = vp_size
+	if main_menu:
+		main_menu.size = vp_size
+	if settings_overlay:
+		settings_overlay.size = vp_size
+	if statistics_overlay:
+		statistics_overlay.size = vp_size
+	if run_complete_overlay:
+		run_complete_overlay.size = vp_size
+	if run_failure_overlay:
+		run_failure_overlay.size = vp_size
+
+	# 2. Main Menu vertical centering
+	if main_menu:
+		var menu_content_height: float = 635.0
+		var menu_start_y: float = maxf(safe_top + 40.0, (vp_size.y - menu_content_height) * 0.5)
+
+		var title_lbl: Label = main_menu.get_node_or_null("TitleLabel") as Label
+		var sub_lbl: Label = main_menu.get_node_or_null("SubtitleLabel") as Label
+
+		if title_lbl:
+			title_lbl.position = Vector2((vp_size.x - title_lbl.size.x) * 0.5, menu_start_y)
+		if sub_lbl:
+			sub_lbl.position = Vector2((vp_size.x - sub_lbl.size.x) * 0.5, menu_start_y + 95.0)
+		if personal_best_label:
+			personal_best_label.position = Vector2((vp_size.x - personal_best_label.size.x) * 0.5, menu_start_y + 175.0)
+		if start_game_button:
+			start_game_button.position = Vector2((vp_size.x - start_game_button.size.x) * 0.5, menu_start_y + 255.0)
+		if daily_challenge_button:
+			daily_challenge_button.position = Vector2((vp_size.x - daily_challenge_button.size.x) * 0.5, menu_start_y + 365.0)
+		if statistics_button:
+			statistics_button.position = Vector2((vp_size.x - statistics_button.size.x) * 0.5, menu_start_y + 475.0)
+		if settings_button:
+			settings_button.position = Vector2((vp_size.x - settings_button.size.x) * 0.5, menu_start_y + 565.0)
+
+	# 3. Top HUD positioning
+	var level_lbl: Label = get_node_or_null("LevelIndicatorLabel") as Label
+	var lives_lbl: Label = get_node_or_null("LivesLabel") as Label
+	var streak_lbl: Label = get_node_or_null("StreakLabel") as Label
+	var top_title: Label = get_node_or_null("TitleLabel") as Label
+
+	var hud_y: float = safe_top
+	if level_lbl:
+		level_lbl.position = Vector2(40.0, hud_y + 5.0)
+	if lives_lbl:
+		lives_lbl.position = Vector2((vp_size.x - lives_lbl.size.x) * 0.5, hud_y + 5.0)
+	if streak_lbl:
+		streak_lbl.position = Vector2(vp_size.x - 280.0, hud_y + 5.0)
+	if in_game_menu_button:
+		in_game_menu_button.position = Vector2(vp_size.x - 140.0, hud_y)
+	if top_title:
+		top_title.position = Vector2((vp_size.x - top_title.size.x) * 0.5, hud_y + 70.0)
+
+	# 4. Notify LevelManager
+	if level_manager and level_manager.has_method("update_responsive_layout"):
+		level_manager.update_responsive_layout(vp_size, safe_top)
 
 
 func _show_main_menu() -> void:
 	current_state = AppState.MAIN_MENU
+	update_responsive_layout()
 	_refresh_main_menu()
 
 	if main_menu:
