@@ -281,16 +281,26 @@ static func get_daily_seed(date_key: int) -> int:
 	return abs((date_key * 31) + DAILY_ALGORITHM_VERSION)
 
 
-func start_daily_challenge(date_key: int = 0) -> void:
+func start_daily_challenge(date_key: int = 0, current_unix: int = 0) -> void:
+	if save_manager:
+		if not save_manager.is_daily_available(current_unix):
+			push_warning("LevelManager: Daily Challenge is currently in cooldown.")
+			return
+		if save_manager.get_daily_completed() or save_manager.get_daily_date_key() <= 0:
+			if date_key <= 0:
+				date_key = get_today_date_key()
+			save_manager.start_new_daily_cycle(date_key)
+		else:
+			if date_key <= 0:
+				date_key = save_manager.get_daily_date_key()
+
 	if date_key <= 0:
 		date_key = get_today_date_key()
+
 	print("STARTING DAILY CHALLENGE for Date Key: %d" % date_key)
 
 	current_run_mode = RunMode.DAILY
 	active_daily_date_key = date_key
-
-	if save_manager:
-		save_manager.ensure_daily_state(active_daily_date_key)
 
 	_reset_run_state()
 	generate_daily_run_sequence(active_daily_date_key)
@@ -983,7 +993,7 @@ func _show_run_failure_overlay() -> void:
 		return
 
 	if save_manager and current_run_mode == RunMode.DAILY:
-		save_manager.record_daily_progress(active_daily_date_key, current_level_index, best_streak_this_run)
+		save_manager.record_daily_progress(current_level_index, best_streak_this_run)
 
 	var motivation_text: String = _get_failure_motivation_text()
 
@@ -1186,7 +1196,7 @@ func _on_completion() -> void:
 			var is_perfect: bool = (mistakes_this_run == 0)
 			if save_manager:
 				if current_run_mode == RunMode.DAILY:
-					save_manager.record_daily_completed(active_daily_date_key, is_perfect, best_streak_this_run)
+					save_manager.record_daily_completed(is_perfect, best_streak_this_run)
 				else:
 					save_manager.record_run_completed(is_perfect)
 
@@ -1298,7 +1308,22 @@ func _show_run_complete_overlay() -> void:
 	if summary_session_streak_label:
 		summary_session_streak_label.text = "Kişisel Rekor: x%d" % personal_best_streak
 
+	if play_again_button:
+		if current_run_mode == RunMode.DAILY:
+			play_again_button.visible = false
+		else:
+			play_again_button.visible = true
+
 	if run_complete_overlay:
+		var complete_menu_btn: Button = run_complete_overlay.get_node_or_null("Card/CompleteMenuButton") as Button
+		if complete_menu_btn:
+			if current_run_mode == RunMode.DAILY:
+				complete_menu_btn.set_position(Vector2(120.0, 380.0))
+				complete_menu_btn.size = Vector2(300.0, 80.0)
+			else:
+				complete_menu_btn.set_position(Vector2(140.0, 455.0))
+				complete_menu_btn.size = Vector2(260.0, 75.0)
+
 		run_complete_overlay.visible = true
 		run_complete_overlay.modulate.a = 0.0
 

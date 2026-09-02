@@ -20,6 +20,7 @@ var daily_completed: bool = false
 var daily_best_solved: int = 0
 var daily_best_streak: int = 0
 var daily_perfect: bool = false
+var daily_next_available_at_unix: int = 0
 
 
 func _ready() -> void:
@@ -43,6 +44,7 @@ func load_data() -> void:
 		daily_best_solved = 0
 		daily_best_streak = 0
 		daily_perfect = false
+		daily_next_available_at_unix = 0
 		return
 
 	var err: Error = config.load(save_path)
@@ -61,6 +63,7 @@ func load_data() -> void:
 		daily_best_solved = 0
 		daily_best_streak = 0
 		daily_perfect = false
+		daily_next_available_at_unix = 0
 		return
 
 	sound_enabled = bool(config.get_value("settings", "sound_enabled", true))
@@ -78,6 +81,7 @@ func load_data() -> void:
 	daily_best_solved = int(config.get_value("daily", "daily_best_solved", 0))
 	daily_best_streak = int(config.get_value("daily", "daily_best_streak", 0))
 	daily_perfect = bool(config.get_value("daily", "daily_perfect", false))
+	daily_next_available_at_unix = int(config.get_value("daily", "daily_next_available_at_unix", 0))
 
 
 func save_data() -> bool:
@@ -97,6 +101,7 @@ func save_data() -> bool:
 	config.set_value("daily", "daily_best_solved", daily_best_solved)
 	config.set_value("daily", "daily_best_streak", daily_best_streak)
 	config.set_value("daily", "daily_perfect", daily_perfect)
+	config.set_value("daily", "daily_next_available_at_unix", daily_next_available_at_unix)
 
 	var err: Error = config.save(save_path)
 	if err != OK:
@@ -210,31 +215,38 @@ func get_daily_perfect() -> bool:
 	return daily_perfect
 
 
-func is_daily_completed_today(current_date_key: int = 0) -> bool:
-	if current_date_key <= 0:
-		var dt: Dictionary = Time.get_date_dict_from_system()
-		current_date_key = dt.get("year", 2026) * 10000 + dt.get("month", 1) * 100 + dt.get("day", 1)
-	return (daily_date_key == current_date_key and daily_completed)
+func get_daily_next_available_at_unix() -> int:
+	return daily_next_available_at_unix
 
 
-func ensure_daily_state(current_date_key: int) -> void:
-	if current_date_key <= 0:
-		return
-	if daily_date_key != current_date_key:
-		daily_date_key = current_date_key
-		daily_completed = false
-		daily_best_solved = 0
-		daily_best_streak = 0
-		daily_perfect = false
-		save_data()
+func is_daily_available(current_unix: int = 0) -> bool:
+	if current_unix <= 0:
+		current_unix = int(Time.get_unix_time_from_system())
+	if daily_next_available_at_unix <= 0:
+		return true
+	return current_unix >= daily_next_available_at_unix
 
 
-func record_daily_started(date_key: int) -> void:
-	ensure_daily_state(date_key)
+func start_new_daily_cycle(date_key: int) -> void:
+	daily_date_key = date_key
+	daily_completed = false
+	daily_best_solved = 0
+	daily_best_streak = 0
+	daily_perfect = false
+	daily_next_available_at_unix = 0
+	save_data()
 
 
-func record_daily_progress(date_key: int, solved_count: int, streak_val: int) -> void:
-	ensure_daily_state(date_key)
+func record_daily_started(date_key: int, current_unix: int = 0) -> void:
+	if is_daily_available(current_unix):
+		if daily_completed or daily_date_key <= 0:
+			start_new_daily_cycle(date_key)
+		elif daily_date_key <= 0:
+			daily_date_key = date_key
+			save_data()
+
+
+func record_daily_progress(solved_count: int, streak_val: int) -> void:
 	var changed: bool = false
 	if solved_count > daily_best_solved:
 		daily_best_solved = solved_count
@@ -246,12 +258,20 @@ func record_daily_progress(date_key: int, solved_count: int, streak_val: int) ->
 		save_data()
 
 
-func record_daily_completed(date_key: int, is_perfect: bool, streak_val: int) -> void:
-	ensure_daily_state(date_key)
+func record_daily_completed(is_perfect: bool, streak_val: int, current_unix: int = 0) -> void:
+	if current_unix <= 0:
+		current_unix = int(Time.get_unix_time_from_system())
+
 	var changed: bool = false
 	if not daily_completed:
 		daily_completed = true
 		changed = true
+
+	# Guard: Only set/extend cooldown if no active unexpired cooldown exists
+	if daily_next_available_at_unix <= 0 or current_unix >= daily_next_available_at_unix:
+		daily_next_available_at_unix = current_unix + 86400
+		changed = true
+
 	if daily_best_solved < 10:
 		daily_best_solved = 10
 		changed = true

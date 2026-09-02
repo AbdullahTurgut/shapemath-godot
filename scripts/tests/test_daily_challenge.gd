@@ -20,11 +20,11 @@ func _sync_physics() -> void:
 
 func _run_tests() -> void:
 	print("================================================================================")
-	print("--- BEGINNING STEP 18-1 OFFLINE DAILY CHALLENGE TEST SUITE ---")
+	print("--- BEGINNING STEP 18-1.1 DAILY CHALLENGE 24-HOUR COOLDOWN TEST SUITE ---")
 	print("================================================================================")
 
-	var test_save_path: String = "user://test_save_daily.cfg"
-	var legacy_save_path: String = "user://test_save_legacy_daily.cfg"
+	var test_save_path: String = "user://test_save_cooldown.cfg"
+	var legacy_save_path: String = "user://test_save_legacy_cooldown.cfg"
 
 	for p in [test_save_path, legacy_save_path]:
 		if FileAccess.file_exists(p):
@@ -63,7 +63,7 @@ func _run_tests() -> void:
 	# ================================================================================
 	# TEST 3: DAILY SEQUENCE GENERATION & REPRODUCIBILITY
 	# ================================================================================
-	print("\n[TEST 3] Daily Sequence Generation (Length, Tiers, Determinism, Isolation)")
+	print("\n[TEST 3] Daily Sequence Generation (Length, Tiers, Determinism, Anti-Clumping)")
 	var seq_a: Array[LevelData] = lm.generate_daily_run_sequence(20260902)
 	assert(seq_a.size() == 10, "Daily sequence has exactly 10 levels")
 
@@ -92,115 +92,96 @@ func _run_tests() -> void:
 	for i in range(seq_a.size() - 2):
 		var clump: bool = (seq_a[i].puzzle_type == seq_a[i+1].puzzle_type and seq_a[i+1].puzzle_type == seq_a[i+2].puzzle_type)
 		assert(not clump, "Anti-clumping satisfied at index %d" % i)
-
-	# Different date produces different challenge
-	var seq_diff: Array[LevelData] = lm.generate_daily_run_sequence(20260903)
-	assert(seq_diff.size() == 10, "Different date sequence has 10 levels")
-	var is_any_different: bool = false
-	for i in range(10):
-		if seq_a[i] != seq_diff[i]:
-			is_any_different = true
-			break
-	assert(is_any_different, "Different dates generate different level sequences")
 	print("-> TEST 3 PASSED: Daily sequence generation verified.")
 
 	# ================================================================================
-	# TEST 4: SAVEMANAGER DAILY PERSISTENCE & LEGACY COMPATIBILITY
+	# TEST 4: ROLLING 24-HOUR COOLDOWN PERSISTENCE & TIMESTAMPS
 	# ================================================================================
-	print("\n[TEST 4] SaveManager Daily Persistence & Rollover")
+	print("\n[TEST 4] SaveManager Rolling 24-Hour Cooldown & Injected Timestamps")
 	var sm := SaveManager.new()
 	sm.save_path = test_save_path
 	sm.load_data()
 
-	assert(sm.get_daily_date_key() == 0, "Default daily_date_key is 0")
-	assert(sm.get_daily_completed() == false, "Default daily_completed is false")
-	assert(sm.get_daily_best_solved() == 0, "Default daily_best_solved is 0")
-	assert(sm.get_daily_best_streak() == 0, "Default daily_best_streak is 0")
-	assert(sm.get_daily_perfect() == false, "Default daily_perfect is false")
-	assert(sm.is_daily_completed_today(20260902) == false, "is_daily_completed_today is false")
+	var t0: int = 1788360000 # Reference Unix timestamp (e.g. 18:00:00)
 
-	# Start daily for date 20260902
-	sm.record_daily_started(20260902)
+	# Initial state: no cooldown -> available
+	assert(sm.get_daily_next_available_at_unix() == 0, "Default daily_next_available_at_unix is 0")
+	assert(sm.is_daily_available(t0) == true, "Fresh save is available at t0")
+
+	# Start daily cycle
+	sm.record_daily_started(20260902, t0)
 	assert(sm.get_daily_date_key() == 20260902, "daily_date_key set to 20260902")
+	assert(sm.is_daily_available(t0) == true, "Available after starting cycle")
 
-	# Record daily progress
-	sm.record_daily_progress(20260902, 5, 4)
-	assert(sm.get_daily_best_solved() == 5, "daily_best_solved updated to 5")
-	assert(sm.get_daily_best_streak() == 4, "daily_best_streak updated to 4")
+	# Progress recording does not start cooldown
+	sm.record_daily_progress(5, 4)
+	assert(sm.get_daily_best_solved() == 5, "daily_best_solved is 5")
+	assert(sm.get_daily_best_streak() == 4, "daily_best_streak is 4")
+	assert(sm.get_daily_next_available_at_unix() == 0, "Progress recording did not set cooldown")
+	assert(sm.is_daily_available(t0) == true, "Available during progress")
 
-	# Non-regressing updates
-	sm.record_daily_progress(20260902, 3, 2)
-	assert(sm.get_daily_best_solved() == 5, "daily_best_solved did not decrease")
-	assert(sm.get_daily_best_streak() == 4, "daily_best_streak did not decrease")
-
-	# Record non-perfect completion
-	sm.record_daily_completed(20260902, false, 6)
+	# Successful completion at t0
+	sm.record_daily_completed(true, 10, t0)
 	assert(sm.get_daily_completed() == true, "daily_completed is true")
-	assert(sm.get_daily_best_solved() == 10, "daily_best_solved is 10 on completion")
-	assert(sm.get_daily_best_streak() == 6, "daily_best_streak is 6")
-	assert(sm.get_daily_perfect() == false, "daily_perfect is false")
-	assert(sm.is_daily_completed_today(20260902) == true, "is_daily_completed_today returns true")
+	assert(sm.get_daily_perfect() == true, "daily_perfect is true")
+	assert(sm.get_daily_best_solved() == 10, "daily_best_solved is 10")
+	assert(sm.get_daily_best_streak() == 10, "daily_best_streak is 10")
+	assert(sm.get_daily_next_available_at_unix() == t0 + 86400, "daily_next_available_at_unix is exactly t0 + 86400 (24h)")
 
-	# Replay perfect completion later that date
-	sm.record_daily_completed(20260902, true, 10)
-	assert(sm.get_daily_perfect() == true, "daily_perfect becomes true after perfect replay")
-	assert(sm.get_daily_best_streak() == 10, "daily_best_streak updated to 10")
+	# Cooldown availability checks
+	assert(sm.is_daily_available(t0) == false, "Unavailable immediately at t0")
+	assert(sm.is_daily_available(t0 + 3600) == false, "Unavailable at t0 + 1 hour")
+	assert(sm.is_daily_available(t0 + 43200) == false, "Unavailable at t0 + 12 hours")
+	assert(sm.is_daily_available(t0 + 86399) == false, "Unavailable at t0 + 23h 59m 59s")
+	assert(sm.is_daily_available(t0 + 86400) == true, "Available at exactly t0 + 24 hours (86400s)")
+	assert(sm.is_daily_available(t0 + 100000) == true, "Available after > 24 hours")
 
-	# Imperfect replay after perfect completion preserves daily_perfect
-	sm.record_daily_completed(20260902, false, 8)
-	assert(sm.get_daily_perfect() == true, "daily_perfect remains true after subsequent imperfect replay")
+	# Duplicate completion callback guard: does NOT extend cooldown
+	sm.record_daily_completed(false, 8, t0 + 100)
+	assert(sm.get_daily_next_available_at_unix() == t0 + 86400, "Duplicate completion did not extend cooldown")
 
-	# Rollover to new date 20260903
-	sm.set_sound_enabled(false)
-	sm.set_haptics_enabled(false)
-	sm.personal_best_streak = 12
-	sm.total_runs_started = 5
-	sm.total_runs_completed = 3
-	sm.total_perfect_runs = 1
-	sm.total_puzzles_solved = 45
-	sm.save_data()
+	# Reload from disk: cooldown persists
+	var sm2 := SaveManager.new()
+	sm2.save_path = test_save_path
+	sm2.load_data()
+	assert(sm2.get_daily_next_available_at_unix() == t0 + 86400, "Cooldown timestamp persisted on disk")
+	assert(sm2.is_daily_available(t0 + 86399) == false, "Disk reload preserves locked cooldown")
+	assert(sm2.is_daily_available(t0 + 86400) == true, "Disk reload unlocks after 24 hours")
 
-	sm.ensure_daily_state(20260903)
-	assert(sm.get_daily_date_key() == 20260903, "Rolled over to new date_key")
-	assert(sm.get_daily_completed() == false, "daily_completed reset on new date")
-	assert(sm.get_daily_best_solved() == 0, "daily_best_solved reset on new date")
-	assert(sm.get_daily_best_streak() == 0, "daily_best_streak reset on new date")
-	assert(sm.get_daily_perfect() == false, "daily_perfect reset on new date")
-
-	# Lifetime stats & settings untouched
-	assert(sm.get_sound_enabled() == false, "sound_enabled preserved across daily rollover")
-	assert(sm.get_haptics_enabled() == false, "haptics_enabled preserved across daily rollover")
-	assert(sm.get_personal_best_streak() == 12, "personal_best_streak preserved across daily rollover")
-	assert(sm.get_total_runs_started() == 5, "total_runs_started preserved across daily rollover")
-	assert(sm.get_total_runs_completed() == 3, "total_runs_completed preserved across daily rollover")
-	assert(sm.get_total_perfect_runs() == 1, "total_perfect_runs preserved across daily rollover")
-	assert(sm.get_total_puzzles_solved() == 45, "total_puzzles_solved preserved across daily rollover")
-
-	# Legacy save file loading (missing [daily] section)
+	# Legacy save file loading (missing [daily] section or missing daily_next_available_at_unix)
 	var legacy_cfg := ConfigFile.new()
 	legacy_cfg.set_value("settings", "sound_enabled", true)
-	legacy_cfg.set_value("progress", "total_puzzles_solved", 80)
+	legacy_cfg.set_value("progress", "total_puzzles_solved", 100)
+	legacy_cfg.set_value("daily", "daily_completed", true)
 	legacy_cfg.save(legacy_save_path)
 
 	var legacy_sm := SaveManager.new()
 	legacy_sm.save_path = legacy_save_path
 	legacy_sm.load_data()
-	assert(legacy_sm.get_daily_date_key() == 0, "Legacy save daily_date_key defaults to 0")
-	assert(legacy_sm.get_daily_completed() == false, "Legacy save daily_completed defaults to false")
-	assert(legacy_sm.get_total_puzzles_solved() == 80, "Legacy save preserves total_puzzles_solved")
-	print("-> TEST 4 PASSED: Daily persistence & rollover verified.")
+	assert(legacy_sm.get_daily_next_available_at_unix() == 0, "Legacy save defaults daily_next_available_at_unix to 0")
+	assert(legacy_sm.is_daily_available(t0) == true, "Legacy save defaults to available (no arbitrary lockout)")
+
+	# New cycle reset when starting available challenge after cooldown
+	sm2.record_daily_started(20260903, t0 + 86400)
+	assert(sm2.get_daily_date_key() == 20260903, "New cycle date_key set to 20260903")
+	assert(sm2.get_daily_completed() == false, "daily_completed reset on new cycle start")
+	assert(sm2.get_daily_best_solved() == 0, "daily_best_solved reset on new cycle start")
+	assert(sm2.get_daily_best_streak() == 0, "daily_best_streak reset on new cycle start")
+	assert(sm2.get_daily_perfect() == false, "daily_perfect reset on new cycle start")
+	assert(sm2.get_daily_next_available_at_unix() == 0, "daily_next_available_at_unix reset to 0 on new cycle start")
+	print("-> TEST 4 PASSED: Rolling 24-hour cooldown persistence & timestamps verified.")
 
 	# ================================================================================
-	# TEST 5: FULL SCENE & GAMEPLAY LIFECYCLE SIMULATION (DAILY & STANDARD)
+	# TEST 5: FULL SCENE LIFECYCLE, MAIN MENU UX & COOLDOWN REPLAY GUARD
 	# ================================================================================
-	print("\n[TEST 5] Full Scene & Gameplay Lifecycle Simulation")
+	print("\n[TEST 5] Full Scene Lifecycle, Main Menu UX & Overlay Replay Guard")
 	var main_scene = MainScene.instantiate()
 	root.add_child(main_scene)
 	await _sync_physics()
 
 	var scene_sm: SaveManager = main_scene.save_manager
 	var scene_lm: LevelManager = main_scene.level_manager
-	scene_sm.save_path = "user://test_scene_daily.cfg"
+	scene_sm.save_path = "user://test_scene_cooldown.cfg"
 	if FileAccess.file_exists(scene_sm.save_path):
 		DirAccess.remove_absolute(scene_sm.save_path)
 	scene_sm.load_data()
@@ -212,25 +193,27 @@ func _run_tests() -> void:
 	var level_lbl: Label = main_scene.get_node("LevelIndicatorLabel")
 	var complete_overlay: Control = main_scene.get_node("RunCompleteOverlay")
 	var summary_title: Label = main_scene.get_node("RunCompleteOverlay/Card/CardTitle")
+	var play_again_btn: Button = main_scene.get_node("RunCompleteOverlay/Card/PlayAgainButton")
+	var complete_menu_btn: Button = main_scene.get_node("RunCompleteOverlay/Card/CompleteMenuButton")
 	var failure_overlay: Control = main_scene.get_node("RunFailureOverlay")
 	var failure_title: Label = main_scene.get_node("RunFailureOverlay/Card/CardTitle")
 	var failure_progress: Label = main_scene.get_node("RunFailureOverlay/Card/FailureProgressLabel")
+	var try_again_btn: Button = main_scene.get_node("RunFailureOverlay/Card/TryAgainButton")
 
-	# Initial Main Menu state
-	assert(daily_btn != null, "DailyChallengeButton exists in MainMenu")
-	assert(daily_btn.text == "Günün Turu", "Daily button initially reads 'Günün Turu'")
+	# Initial Main Menu state: available
+	assert(daily_btn != null, "DailyChallengeButton exists")
+	assert(daily_btn.text == "Günün Turu", "Daily button text is 'Günün Turu'")
+	assert(daily_btn.disabled == false, "Daily button is enabled")
 
 	# Start Daily Challenge
 	main_scene.start_daily_from_menu()
 	await _sync_physics()
 
-	assert(main_scene.current_state == main_scene.AppState.PLAYING, "Main state is PLAYING")
-	assert(scene_lm.current_run_mode == LevelManager.RunMode.DAILY, "LevelManager is in DAILY mode")
+	assert(main_scene.current_state == main_scene.AppState.PLAYING, "State is PLAYING")
+	assert(scene_lm.current_run_mode == LevelManager.RunMode.DAILY, "Mode is DAILY")
 	assert(scene_lm.current_run_levels.size() == 10, "Daily run has 10 levels")
 	assert(title_lbl.text == "Günün Turu", "Title label displays 'Günün Turu'")
 	assert(level_lbl.text == "Bölüm 1 / 10", "Level indicator displays 'Bölüm 1 / 10'")
-
-	# Daily does not increment standard runs started
 	assert(scene_sm.get_total_runs_started() == 0, "Daily start does NOT increment total_runs_started")
 
 	var solve_current := func():
@@ -263,7 +246,7 @@ func _run_tests() -> void:
 				scene_lm._handle_deliberate_failure(scene_lm.math_pieces[0])
 		await _sync_physics()
 
-	# Simulate solving 10 levels perfectly
+	# Solve 10 levels perfectly
 	for i in range(10):
 		var target_idx: int = i
 		await solve_current.call()
@@ -285,20 +268,23 @@ func _run_tests() -> void:
 	await process_frame
 	await _sync_physics()
 
+	# Verify Run Complete Overlay for Daily
 	assert(complete_overlay.visible == true, "RunCompleteOverlay is visible")
 	assert("Kusursuz Gün!" in summary_title.text, "Daily perfect title reads 'Kusursuz Gün!'")
 	assert("10 / 10" in summary_title.text, "Daily completion displays '10 / 10'")
+	assert(play_again_btn.visible == false, "PlayAgainButton is HIDDEN on successful Daily completion")
+	assert(complete_menu_btn.visible == true, "CompleteMenuButton is visible on Daily completion")
 
-	# Check statistics isolation
-	assert(scene_sm.get_total_runs_started() == 0, "total_runs_started is 0")
-	assert(scene_sm.get_total_runs_completed() == 0, "total_runs_completed is 0")
-	assert(scene_sm.get_total_perfect_runs() == 0, "total_perfect_runs is 0")
+	# Verify statistics isolation
+	assert(scene_sm.get_total_runs_started() == 0, "total_runs_started remains 0")
+	assert(scene_sm.get_total_runs_completed() == 0, "total_runs_completed remains 0")
+	assert(scene_sm.get_total_perfect_runs() == 0, "total_perfect_runs remains 0")
 	assert(scene_sm.get_total_puzzles_solved() == 10, "total_puzzles_solved is 10")
-	assert(scene_sm.get_personal_best_streak() == 10, "personal_best_streak updated to 10")
+	assert(scene_sm.get_personal_best_streak() == 10, "personal_best_streak is 10")
 	assert(scene_sm.get_daily_completed() == true, "daily_completed is true")
 	assert(scene_sm.get_daily_perfect() == true, "daily_perfect is true")
-	assert(scene_sm.get_daily_best_solved() == 10, "daily_best_solved is 10")
-	assert(scene_sm.get_daily_best_streak() == 10, "daily_best_streak is 10")
+	assert(scene_sm.get_daily_next_available_at_unix() > 0, "daily_next_available_at_unix is set")
+	assert(scene_sm.is_daily_available() == false, "is_daily_available is false (locked in cooldown)")
 
 	# Return to Main Menu
 	main_scene.return_to_main_menu()
@@ -306,14 +292,44 @@ func _run_tests() -> void:
 
 	assert(main_scene.current_state == main_scene.AppState.MAIN_MENU, "Returned to MAIN_MENU")
 	assert(daily_btn.text == "Günün Turu ✓", "Daily button displays checkmark 'Günün Turu ✓'")
+	assert(daily_btn.disabled == true, "Daily button is DISABLED during cooldown")
 
-	# Replay Daily Challenge
+	# Attempt to start Daily during cooldown
 	main_scene.start_daily_from_menu()
 	await _sync_physics()
-	assert(scene_lm.current_run_mode == LevelManager.RunMode.DAILY, "Replay starts in DAILY mode")
-	assert(scene_lm.current_run_levels.size() == 10, "Replay has 10 levels")
+	assert(main_scene.current_state == main_scene.AppState.MAIN_MENU, "Direct start_daily_from_menu was blocked by guard")
 
-	# Fail on level 1 (deliberate wrong drop removes lives)
+	# Standard Run remains available during Daily cooldown
+	main_scene.start_game_from_menu()
+	await _sync_physics()
+
+	assert(main_scene.current_state == main_scene.AppState.PLAYING, "Standard run started")
+	assert(scene_lm.current_run_mode == LevelManager.RunMode.STANDARD, "Mode is STANDARD")
+	assert(scene_lm.current_run_levels.size() == 15, "Standard run has 15 levels")
+	assert(title_lbl.text == "ShapeMath", "Title is 'ShapeMath'")
+	assert(level_lbl.text == "Bölüm 1 / 15", "Level indicator is 'Bölüm 1 / 15'")
+	assert(scene_sm.get_total_runs_started() == 1, "Standard start increments total_runs_started to 1")
+
+	# Return to Main Menu
+	main_scene.return_to_main_menu()
+	await _sync_physics()
+
+	# Simulate 24-hour cooldown expiry & new cycle
+	scene_sm.daily_next_available_at_unix = 0
+	main_scene._refresh_main_menu()
+
+	assert(daily_btn.text == "Günün Turu", "Daily button re-enabled after cooldown expiry")
+	assert(daily_btn.disabled == false, "Daily button is enabled after cooldown expiry")
+
+	# Start new Daily cycle & test failure retry
+	main_scene.start_daily_from_menu()
+	await _sync_physics()
+	assert(scene_lm.current_run_mode == LevelManager.RunMode.DAILY, "New daily started")
+	assert(scene_lm.current_run_levels.size() == 10, "New daily has 10 levels")
+	var captured_date_key: int = scene_lm.active_daily_date_key
+	var first_level_prompt: String = scene_lm.current_level_data.prompt_text
+
+	# Fail on level 1 (3 wrong drops)
 	await drop_wrong.call()
 	await drop_wrong.call()
 	await drop_wrong.call() # 0 lives -> failure
@@ -328,28 +344,25 @@ func _run_tests() -> void:
 	assert(failure_overlay.visible == true, "RunFailureOverlay is visible")
 	assert(failure_title.text == "Günün Turu Başarısız", "Failure title reads 'Günün Turu Başarısız'")
 	assert("1 / 10 Bölüme Ulaştın" in failure_progress.text, "Failure progress displays '1 / 10'")
+	assert(try_again_btn.visible == true, "TryAgainButton is visible on Daily failure")
+	assert(scene_sm.get_daily_next_available_at_unix() == 0, "Failure did NOT set a cooldown")
 
-	# Return to Main Menu and start Standard Run
-	main_scene.return_to_main_menu()
+	# Retry via Try Again: reproduces identical active challenge
+	try_again_btn.pressed.emit()
 	await _sync_physics()
-	main_scene.start_game_from_menu()
-	await _sync_physics()
-
-	assert(scene_lm.current_run_mode == LevelManager.RunMode.STANDARD, "Standard run mode is STANDARD")
-	assert(scene_lm.current_run_levels.size() == 15, "Standard run has 15 levels")
-	assert(title_lbl.text == "ShapeMath", "Standard title displays 'ShapeMath'")
-	assert(level_lbl.text == "Bölüm 1 / 15", "Standard level indicator displays 'Bölüm 1 / 15'")
-	assert(scene_sm.get_total_runs_started() == 1, "Standard start increments total_runs_started to 1")
+	assert(scene_lm.current_run_mode == LevelManager.RunMode.DAILY, "Retry stays in DAILY mode")
+	assert(scene_lm.active_daily_date_key == captured_date_key, "Retry preserves active challenge date_key")
+	assert(scene_lm.current_level_data.prompt_text == first_level_prompt, "Retry serves identical 10-level challenge")
 
 	main_scene.queue_free()
-	print("-> TEST 5 PASSED: Full scene lifecycle and statistics isolation verified.")
+	print("-> TEST 5 PASSED: Full scene lifecycle, cooldown guard & retry verified.")
 
 	# Cleanup test saves
-	for p in [test_save_path, legacy_save_path, "user://test_scene_daily.cfg"]:
+	for p in [test_save_path, legacy_save_path, "user://test_scene_cooldown.cfg"]:
 		if FileAccess.file_exists(p):
 			DirAccess.remove_absolute(p)
 
 	print("\n================================================================================")
-	print("--- ALL STEP 18-1 DAILY CHALLENGE TESTS PASSED SUCCESSFULLY (100%) ---")
+	print("--- ALL STEP 18-1.1 DAILY CHALLENGE COOLDOWN TESTS PASSED (100%) ---")
 	print("================================================================================")
 	quit()

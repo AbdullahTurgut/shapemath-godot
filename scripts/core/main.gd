@@ -48,6 +48,9 @@ var quit_handler: Callable = Callable()
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_handle_back_request()
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		if current_state == AppState.MAIN_MENU:
+			_refresh_main_menu()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -123,12 +126,22 @@ func _ready() -> void:
 
 	if next_button and not next_button.pressed.is_connected(_on_next_button_pressed) and (not level_manager or not next_button.pressed.is_connected(level_manager.advance_to_next_level)):
 		next_button.pressed.connect(_on_next_button_pressed)
-	if play_again_button and not play_again_button.pressed.is_connected(_on_play_again_pressed) and (not level_manager or not play_again_button.pressed.is_connected(level_manager.start_new_run)):
-		play_again_button.pressed.connect(_on_play_again_pressed)
+
+	if play_again_button:
+		if level_manager and play_again_button.pressed.is_connected(level_manager.start_new_run):
+			play_again_button.pressed.disconnect(level_manager.start_new_run)
+		if not play_again_button.pressed.is_connected(_on_play_again_pressed):
+			play_again_button.pressed.connect(_on_play_again_pressed)
+
 	if complete_menu_button and not complete_menu_button.pressed.is_connected(return_to_main_menu):
 		complete_menu_button.pressed.connect(return_to_main_menu)
-	if try_again_button and not try_again_button.pressed.is_connected(_on_try_again_pressed) and (not level_manager or not try_again_button.pressed.is_connected(level_manager.start_new_run)):
-		try_again_button.pressed.connect(_on_try_again_pressed)
+
+	if try_again_button:
+		if level_manager and try_again_button.pressed.is_connected(level_manager.start_new_run):
+			try_again_button.pressed.disconnect(level_manager.start_new_run)
+		if not try_again_button.pressed.is_connected(_on_try_again_pressed):
+			try_again_button.pressed.connect(_on_try_again_pressed)
+
 	if failure_menu_button and not failure_menu_button.pressed.is_connected(return_to_main_menu):
 		failure_menu_button.pressed.connect(return_to_main_menu)
 
@@ -153,6 +166,17 @@ func _show_main_menu() -> void:
 	_set_gameplay_visible(false)
 
 
+var _menu_refresh_timer: float = 0.0
+
+
+func _process(delta: float) -> void:
+	if current_state == AppState.MAIN_MENU:
+		_menu_refresh_timer += delta
+		if _menu_refresh_timer >= 30.0:
+			_menu_refresh_timer = 0.0
+			_refresh_main_menu()
+
+
 func _refresh_main_menu() -> void:
 	if personal_best_label:
 		var pb: int = 0
@@ -163,16 +187,18 @@ func _refresh_main_menu() -> void:
 		personal_best_label.text = "Kişisel Rekor: x%d" % pb
 
 	if daily_challenge_button:
-		var is_daily_done: bool = false
+		var is_avail: bool = true
 		if save_manager:
-			is_daily_done = save_manager.is_daily_completed_today()
+			is_avail = save_manager.is_daily_available()
 		elif level_manager and level_manager.save_manager:
-			is_daily_done = level_manager.save_manager.is_daily_completed_today()
+			is_avail = level_manager.save_manager.is_daily_available()
 
-		if is_daily_done:
-			daily_challenge_button.text = "Günün Turu ✓"
-		else:
+		if is_avail:
 			daily_challenge_button.text = "Günün Turu"
+			daily_challenge_button.disabled = false
+		else:
+			daily_challenge_button.text = "Günün Turu ✓"
+			daily_challenge_button.disabled = true
 
 
 func _on_statistics_button_pressed() -> void:
@@ -312,6 +338,11 @@ func start_game_from_menu() -> void:
 
 
 func start_daily_from_menu() -> void:
+	if save_manager and not save_manager.is_daily_available():
+		return
+	if level_manager and level_manager.save_manager and not level_manager.save_manager.is_daily_available():
+		return
+
 	current_state = AppState.PLAYING
 
 	if main_menu:
