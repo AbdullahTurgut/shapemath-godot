@@ -237,6 +237,8 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 	new_sequence.append_array(sampled_t2)
 	new_sequence.append_array(sampled_t3)
 
+	new_sequence = _resolve_run_clumps(new_sequence)
+
 	current_run_levels = new_sequence
 
 	var overlap_count: int = 0
@@ -383,6 +385,67 @@ func _has_clump_of_three(arr: Array[LevelData]) -> bool:
 	return false
 
 
+func _count_clumps_of_three(arr: Array[LevelData]) -> int:
+	var count: int = 0
+	for i in range(arr.size() - 2):
+		if arr[i].puzzle_type == arr[i + 1].puzzle_type and arr[i + 1].puzzle_type == arr[i + 2].puzzle_type:
+			count += 1
+	return count
+
+
+func _resolve_run_clumps(run: Array[LevelData]) -> Array[LevelData]:
+	var passes: int = 0
+	while _has_clump_of_three(run) and passes < 50:
+		passes += 1
+		var best_candidate: Array[LevelData] = run
+		var best_clumps: int = _count_clumps_of_three(run)
+
+		for i in range(run.size() - 2):
+			if run[i].puzzle_type == run[i + 1].puzzle_type and run[i + 1].puzzle_type == run[i + 2].puzzle_type:
+				var target_indices: Array[int] = [i, i + 1, i + 2]
+				for target_idx in target_indices:
+					if target_idx % 5 == 0:
+						continue # Preserve tier start
+
+					var tier_start: int = (target_idx / 5) * 5
+					var tier_end: int = tier_start + 4
+
+					for k in range(tier_start, tier_end + 1):
+						if k != target_idx and (k % 5 != 0) and run[k].puzzle_type != run[target_idx].puzzle_type:
+							var cand: Array[LevelData] = run.duplicate()
+							var temp: LevelData = cand[target_idx]
+							cand[target_idx] = cand[k]
+							cand[k] = temp
+							var c_count: int = _count_clumps_of_three(cand)
+							if c_count < best_clumps:
+								best_clumps = c_count
+								best_candidate = cand
+
+		if best_candidate != run:
+			run = best_candidate
+		else:
+			# If single swap stalled, try any pair swap within non-start tier positions
+			for i in range(run.size() - 2):
+				if run[i].puzzle_type == run[i + 1].puzzle_type and run[i + 1].puzzle_type == run[i + 2].puzzle_type:
+					var target_idx: int = i + 1
+					var tier_start: int = (target_idx / 5) * 5
+					for p1 in range(tier_start + 1, tier_start + 5):
+						for p2 in range(p1 + 1, tier_start + 5):
+							var cand: Array[LevelData] = run.duplicate()
+							var temp: LevelData = cand[p1]
+							cand[p1] = cand[p2]
+							cand[p2] = temp
+							var c_count: int = _count_clumps_of_three(cand)
+							if c_count < best_clumps:
+								best_clumps = c_count
+								best_candidate = cand
+			if best_candidate != run:
+				run = best_candidate
+			else:
+				break
+	return run
+
+
 func _get_level_number(lvl: LevelData) -> int:
 	var idx: int = levels.find(lvl)
 	if idx != -1:
@@ -516,7 +579,7 @@ func load_level(index: int) -> void:
 
 	# Build puzzle according to type
 	match current_level_data.puzzle_type:
-		LevelData.PuzzleType.MATH_MATCH, LevelData.PuzzleType.MISSING_NUMBER, LevelData.PuzzleType.EQUIVALENT_EXPRESSION:
+		LevelData.PuzzleType.MATH_MATCH, LevelData.PuzzleType.MISSING_NUMBER, LevelData.PuzzleType.EQUIVALENT_EXPRESSION, LevelData.PuzzleType.NUMBER_SEQUENCE:
 			_setup_math_level()
 		LevelData.PuzzleType.SHAPE_MATCH:
 			_setup_shape_level()
@@ -531,6 +594,8 @@ func load_level(index: int) -> void:
 			puzzle_type_str = "MISSING_NUMBER"
 		LevelData.PuzzleType.EQUIVALENT_EXPRESSION:
 			puzzle_type_str = "EQUIVALENT_EXPRESSION"
+		LevelData.PuzzleType.NUMBER_SEQUENCE:
+			puzzle_type_str = "NUMBER_SEQUENCE"
 
 	print("LOADED RUN LEVEL %d / %d: %s (%s) [Original: Level %d, Lives: %d, Streak: %d, Best: %d]" % [
 		current_level_index + 1,

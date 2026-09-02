@@ -6,6 +6,7 @@ enum PuzzleType {
 	SHAPE_MATCH,
 	MISSING_NUMBER,
 	EQUIVALENT_EXPRESSION,
+	NUMBER_SEQUENCE,
 }
 
 @export var puzzle_type: PuzzleType = PuzzleType.MATH_MATCH

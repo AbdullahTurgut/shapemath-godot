@@ -91,9 +91,9 @@ func _run_tests() -> void:
 	await process_frame
 
 	# ================================================================================
-	# TEST 2: SCENARIOS T, U, V, W: 36-POOL, 5+5+5 SAMPLING, COOLDOWN, PUZZLE TYPES
+	# TEST 2: SCENARIOS T, U, V, W: 54-POOL, 5+5+5 SAMPLING, COOLDOWN, PUZZLE TYPES
 	# ================================================================================
-	print("\n[SCENARIOS T, U, V, W] Pool of 36 levels, 5+5+5 sampling, 4 puzzle types, recent cooldown")
+	print("\n[SCENARIOS T, U, V, W] Pool of 54 levels, 5+5+5 sampling, 5 puzzle types, recent cooldown")
 	var sm_main := SaveManager.new()
 	sm_main.save_path = test_save_path
 	sm_main.sound_enabled = true
@@ -128,7 +128,7 @@ func _run_tests() -> void:
 	lm.summary_delay = 0.01
 	lm.failure_delay = 0.01
 
-	assert(lm.levels.size() == 36, "Scenario T: Pool contains exactly 36 levels")
+	assert(lm.levels.size() == 54, "Scenario T: Pool contains exactly 54 levels")
 
 	start_btn.pressed.emit()
 	await process_frame
