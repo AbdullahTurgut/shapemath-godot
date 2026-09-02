@@ -20,6 +20,7 @@ var quit_handler: Callable = Callable()
 @onready var main_menu: Control = $MainMenu
 @onready var personal_best_label: Label = $MainMenu/PersonalBestLabel
 @onready var start_game_button: Button = $MainMenu/StartGameButton
+@onready var daily_challenge_button: Button = $MainMenu/DailyChallengeButton
 @onready var statistics_button: Button = $MainMenu/StatisticsButton
 @onready var settings_button: Button = $MainMenu/SettingsButton
 @onready var in_game_menu_button: Button = $InGameMenuButton
@@ -101,6 +102,8 @@ func _ready() -> void:
 
 	if start_game_button and not start_game_button.pressed.is_connected(start_game_from_menu):
 		start_game_button.pressed.connect(start_game_from_menu)
+	if daily_challenge_button and not daily_challenge_button.pressed.is_connected(start_daily_from_menu):
+		daily_challenge_button.pressed.connect(start_daily_from_menu)
 	if statistics_button and not statistics_button.pressed.is_connected(_on_statistics_button_pressed):
 		statistics_button.pressed.connect(_on_statistics_button_pressed)
 	if statistics_close_button and not statistics_close_button.pressed.is_connected(_on_statistics_close_pressed):
@@ -158,6 +161,18 @@ func _refresh_main_menu() -> void:
 		elif save_manager:
 			pb = save_manager.get_personal_best_streak()
 		personal_best_label.text = "Kişisel Rekor: x%d" % pb
+
+	if daily_challenge_button:
+		var is_daily_done: bool = false
+		if save_manager:
+			is_daily_done = save_manager.is_daily_completed_today()
+		elif level_manager and level_manager.save_manager:
+			is_daily_done = level_manager.save_manager.is_daily_completed_today()
+
+		if is_daily_done:
+			daily_challenge_button.text = "Günün Turu ✓"
+		else:
+			daily_challenge_button.text = "Günün Turu"
 
 
 func _on_statistics_button_pressed() -> void:
@@ -290,10 +305,26 @@ func start_game_from_menu() -> void:
 	if statistics_overlay:
 		statistics_overlay.visible = false
 
-	_set_gameplay_visible(true)
-
 	if level_manager:
 		level_manager.start_new_run()
+
+	_set_gameplay_visible(true)
+
+
+func start_daily_from_menu() -> void:
+	current_state = AppState.PLAYING
+
+	if main_menu:
+		main_menu.visible = false
+	if settings_overlay:
+		settings_overlay.visible = false
+	if statistics_overlay:
+		statistics_overlay.visible = false
+
+	if level_manager:
+		level_manager.start_daily_challenge()
+
+	_set_gameplay_visible(true)
 
 
 func return_to_main_menu() -> void:
@@ -320,7 +351,12 @@ func _set_gameplay_visible(is_vis: bool) -> void:
 	if level_lbl: level_lbl.visible = is_vis
 	if lives_lbl: lives_lbl.visible = is_vis
 	if streak_lbl: streak_lbl.visible = false
-	if title_lbl: title_lbl.visible = is_vis
+	if title_lbl:
+		if is_vis and level_manager and level_manager.current_run_mode == LevelManager.RunMode.DAILY:
+			title_lbl.text = "Günün Turu"
+		else:
+			title_lbl.text = "ShapeMath"
+		title_lbl.visible = is_vis
 	if prompt_lbl: prompt_lbl.visible = is_vis
 	if success_lbl: success_lbl.visible = false
 	if next_btn: next_btn.visible = false
@@ -335,13 +371,21 @@ func _on_next_button_pressed() -> void:
 
 
 func _on_play_again_pressed() -> void:
-	if level_manager and level_manager.has_method("start_new_run"):
-		level_manager.start_new_run()
+	if level_manager:
+		if level_manager.current_run_mode == LevelManager.RunMode.DAILY:
+			level_manager.start_daily_challenge(level_manager.active_daily_date_key)
+		else:
+			level_manager.start_new_run()
+	_set_gameplay_visible(true)
 
 
 func _on_try_again_pressed() -> void:
-	if level_manager and level_manager.has_method("start_new_run"):
-		level_manager.start_new_run()
+	if level_manager:
+		if level_manager.current_run_mode == LevelManager.RunMode.DAILY:
+			level_manager.start_daily_challenge(level_manager.active_daily_date_key)
+		else:
+			level_manager.start_new_run()
+	_set_gameplay_visible(true)
 
 
 

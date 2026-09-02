@@ -14,6 +14,13 @@ var total_runs_completed: int = 0
 var total_perfect_runs: int = 0
 var total_puzzles_solved: int = 0
 
+# Daily Challenge State
+var daily_date_key: int = 0
+var daily_completed: bool = false
+var daily_best_solved: int = 0
+var daily_best_streak: int = 0
+var daily_perfect: bool = false
+
 
 func _ready() -> void:
 	load_data()
@@ -31,6 +38,11 @@ func load_data() -> void:
 		total_runs_completed = 0
 		total_perfect_runs = 0
 		total_puzzles_solved = 0
+		daily_date_key = 0
+		daily_completed = false
+		daily_best_solved = 0
+		daily_best_streak = 0
+		daily_perfect = false
 		return
 
 	var err: Error = config.load(save_path)
@@ -44,6 +56,11 @@ func load_data() -> void:
 		total_runs_completed = 0
 		total_perfect_runs = 0
 		total_puzzles_solved = 0
+		daily_date_key = 0
+		daily_completed = false
+		daily_best_solved = 0
+		daily_best_streak = 0
+		daily_perfect = false
 		return
 
 	sound_enabled = bool(config.get_value("settings", "sound_enabled", true))
@@ -54,6 +71,13 @@ func load_data() -> void:
 	total_runs_completed = int(config.get_value("progress", "total_runs_completed", 0))
 	total_perfect_runs = int(config.get_value("progress", "total_perfect_runs", 0))
 	total_puzzles_solved = int(config.get_value("progress", "total_puzzles_solved", 0))
+
+	# Daily State with safe defaults for legacy saves
+	daily_date_key = int(config.get_value("daily", "daily_date_key", 0))
+	daily_completed = bool(config.get_value("daily", "daily_completed", false))
+	daily_best_solved = int(config.get_value("daily", "daily_best_solved", 0))
+	daily_best_streak = int(config.get_value("daily", "daily_best_streak", 0))
+	daily_perfect = bool(config.get_value("daily", "daily_perfect", false))
 
 
 func save_data() -> bool:
@@ -66,6 +90,13 @@ func save_data() -> bool:
 	config.set_value("progress", "total_runs_completed", total_runs_completed)
 	config.set_value("progress", "total_perfect_runs", total_perfect_runs)
 	config.set_value("progress", "total_puzzles_solved", total_puzzles_solved)
+
+	# Daily State
+	config.set_value("daily", "daily_date_key", daily_date_key)
+	config.set_value("daily", "daily_completed", daily_completed)
+	config.set_value("daily", "daily_best_solved", daily_best_solved)
+	config.set_value("daily", "daily_best_streak", daily_best_streak)
+	config.set_value("daily", "daily_perfect", daily_perfect)
 
 	var err: Error = config.save(save_path)
 	if err != OK:
@@ -153,4 +184,84 @@ func record_run_completed(is_perfect: bool) -> void:
 	if is_perfect:
 		total_perfect_runs += 1
 	save_data()
+
+
+# ==============================================================================
+# DAILY CHALLENGE PERSISTENCE METHODS
+# ==============================================================================
+
+func get_daily_date_key() -> int:
+	return daily_date_key
+
+
+func get_daily_completed() -> bool:
+	return daily_completed
+
+
+func get_daily_best_solved() -> int:
+	return daily_best_solved
+
+
+func get_daily_best_streak() -> int:
+	return daily_best_streak
+
+
+func get_daily_perfect() -> bool:
+	return daily_perfect
+
+
+func is_daily_completed_today(current_date_key: int = 0) -> bool:
+	if current_date_key <= 0:
+		var dt: Dictionary = Time.get_date_dict_from_system()
+		current_date_key = dt.get("year", 2026) * 10000 + dt.get("month", 1) * 100 + dt.get("day", 1)
+	return (daily_date_key == current_date_key and daily_completed)
+
+
+func ensure_daily_state(current_date_key: int) -> void:
+	if current_date_key <= 0:
+		return
+	if daily_date_key != current_date_key:
+		daily_date_key = current_date_key
+		daily_completed = false
+		daily_best_solved = 0
+		daily_best_streak = 0
+		daily_perfect = false
+		save_data()
+
+
+func record_daily_started(date_key: int) -> void:
+	ensure_daily_state(date_key)
+
+
+func record_daily_progress(date_key: int, solved_count: int, streak_val: int) -> void:
+	ensure_daily_state(date_key)
+	var changed: bool = false
+	if solved_count > daily_best_solved:
+		daily_best_solved = solved_count
+		changed = true
+	if streak_val > daily_best_streak:
+		daily_best_streak = streak_val
+		changed = true
+	if changed:
+		save_data()
+
+
+func record_daily_completed(date_key: int, is_perfect: bool, streak_val: int) -> void:
+	ensure_daily_state(date_key)
+	var changed: bool = false
+	if not daily_completed:
+		daily_completed = true
+		changed = true
+	if daily_best_solved < 10:
+		daily_best_solved = 10
+		changed = true
+	if streak_val > daily_best_streak:
+		daily_best_streak = streak_val
+		changed = true
+	if is_perfect and not daily_perfect:
+		daily_perfect = true
+		changed = true
+	if changed:
+		save_data()
+
 

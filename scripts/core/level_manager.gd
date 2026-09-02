@@ -54,7 +54,16 @@ signal level_reset
 @export_group("Persistence")
 @export var save_manager: SaveManager
 
+enum RunMode {
+	STANDARD,
+	DAILY,
+}
+
+const DAILY_ALGORITHM_VERSION: int = 1
+
 # Active Run State
+var current_run_mode: RunMode = RunMode.STANDARD
+var active_daily_date_key: int = 0
 var previous_run_levels: Array[LevelData] = []
 var current_run_levels: Array[LevelData] = []
 var current_level_data: LevelData = null
@@ -255,6 +264,92 @@ func generate_run_sequence(rng: RandomNumberGenerator = null) -> Array[LevelData
 	return current_run_levels
 
 
+func get_active_run_length() -> int:
+	match current_run_mode:
+		RunMode.DAILY:
+			return 10
+		_:
+			return 15
+
+
+static func get_today_date_key() -> int:
+	var dt: Dictionary = Time.get_date_dict_from_system()
+	return dt.get("year", 2026) * 10000 + dt.get("month", 1) * 100 + dt.get("day", 1)
+
+
+static func get_daily_seed(date_key: int) -> int:
+	return abs((date_key * 31) + DAILY_ALGORITHM_VERSION)
+
+
+func start_daily_challenge(date_key: int = 0) -> void:
+	if date_key <= 0:
+		date_key = get_today_date_key()
+	print("STARTING DAILY CHALLENGE for Date Key: %d" % date_key)
+
+	current_run_mode = RunMode.DAILY
+	active_daily_date_key = date_key
+
+	if save_manager:
+		save_manager.ensure_daily_state(active_daily_date_key)
+
+	_reset_run_state()
+	generate_daily_run_sequence(active_daily_date_key)
+	load_level(0)
+
+
+func generate_daily_run_sequence(date_key: int = 0) -> Array[LevelData]:
+	_ensure_levels_loaded()
+	if date_key <= 0:
+		date_key = get_today_date_key()
+
+	active_daily_date_key = date_key
+	var daily_rng := RandomNumberGenerator.new()
+	daily_rng.seed = get_daily_seed(date_key)
+
+	var tier1_pool: Array[LevelData] = []
+	var tier2_pool: Array[LevelData] = []
+	var tier3_pool: Array[LevelData] = []
+
+	for lvl in levels:
+		match lvl.tier:
+			1:
+				tier1_pool.append(lvl)
+			2:
+				tier2_pool.append(lvl)
+			3:
+				tier3_pool.append(lvl)
+			_:
+				tier1_pool.append(lvl)
+
+	var sampled_t1: Array[LevelData] = _sample_tier_deterministic(tier1_pool, 3, daily_rng)
+	var sampled_t2: Array[LevelData] = _sample_tier_deterministic(tier2_pool, 4, daily_rng)
+	var sampled_t3: Array[LevelData] = _sample_tier_deterministic(tier3_pool, 3, daily_rng)
+
+	var new_sequence: Array[LevelData] = []
+	new_sequence.append_array(sampled_t1)
+	new_sequence.append_array(sampled_t2)
+	new_sequence.append_array(sampled_t3)
+
+	new_sequence = _resolve_run_clumps(new_sequence)
+	current_run_levels = new_sequence
+
+	print("[DAILY] Generated 10-level challenge for date %d: %s | %s | %s" % [
+		date_key,
+		", ".join(sampled_t1.map(func(l): return str(_get_level_number(l)))),
+		", ".join(sampled_t2.map(func(l): return str(_get_level_number(l)))),
+		", ".join(sampled_t3.map(func(l): return str(_get_level_number(l))))
+	])
+	return current_run_levels
+
+
+func _sample_tier_deterministic(tier_pool: Array[LevelData], count: int, rng: RandomNumberGenerator) -> Array[LevelData]:
+	if tier_pool.size() < count:
+		return tier_pool.duplicate()
+	var pool_copy: Array[LevelData] = tier_pool.duplicate()
+	_shuffle_array(pool_copy, rng)
+	return pool_copy.slice(0, count)
+
+
 func _sample_tier_with_cooldown(tier_pool: Array[LevelData], prev_tier_levels: Array[LevelData], count: int = 5, avoid_start: LevelData = null, tier_num: int = 1, rng: RandomNumberGenerator = null) -> Array[LevelData]:
 	var fresh_pool: Array[LevelData] = []
 	for lvl in tier_pool:
@@ -393,8 +488,28 @@ func _count_clumps_of_three(arr: Array[LevelData]) -> int:
 	return count
 
 
+func _get_tier_range(idx: int, total_count: int) -> Vector2i:
+	if total_count == 10:
+		if idx < 3:
+			return Vector2i(0, 2)
+		elif idx < 7:
+			return Vector2i(3, 6)
+		else:
+			return Vector2i(7, 9)
+	else:
+		var start: int = (idx / 5) * 5
+		return Vector2i(start, min(start + 4, total_count - 1))
+
+
+func _is_tier_start_index(idx: int, total_count: int) -> bool:
+	if total_count == 10:
+		return (idx == 0 or idx == 3 or idx == 7)
+	return (idx % 5 == 0)
+
+
 func _resolve_run_clumps(run: Array[LevelData]) -> Array[LevelData]:
 	var passes: int = 0
+	var total_count: int = run.size()
 	while _has_clump_of_three(run) and passes < 50:
 		passes += 1
 		var best_candidate: Array[LevelData] = run
@@ -404,14 +519,15 @@ func _resolve_run_clumps(run: Array[LevelData]) -> Array[LevelData]:
 			if run[i].puzzle_type == run[i + 1].puzzle_type and run[i + 1].puzzle_type == run[i + 2].puzzle_type:
 				var target_indices: Array[int] = [i, i + 1, i + 2]
 				for target_idx in target_indices:
-					if target_idx % 5 == 0:
+					if _is_tier_start_index(target_idx, total_count):
 						continue # Preserve tier start
 
-					var tier_start: int = (target_idx / 5) * 5
-					var tier_end: int = tier_start + 4
+					var tier_range: Vector2i = _get_tier_range(target_idx, total_count)
+					var tier_start: int = tier_range.x
+					var tier_end: int = tier_range.y
 
 					for k in range(tier_start, tier_end + 1):
-						if k != target_idx and (k % 5 != 0) and run[k].puzzle_type != run[target_idx].puzzle_type:
+						if k != target_idx and not _is_tier_start_index(k, total_count) and run[k].puzzle_type != run[target_idx].puzzle_type:
 							var cand: Array[LevelData] = run.duplicate()
 							var temp: LevelData = cand[target_idx]
 							cand[target_idx] = cand[k]
@@ -428,9 +544,11 @@ func _resolve_run_clumps(run: Array[LevelData]) -> Array[LevelData]:
 			for i in range(run.size() - 2):
 				if run[i].puzzle_type == run[i + 1].puzzle_type and run[i + 1].puzzle_type == run[i + 2].puzzle_type:
 					var target_idx: int = i + 1
-					var tier_start: int = (target_idx / 5) * 5
-					for p1 in range(tier_start + 1, tier_start + 5):
-						for p2 in range(p1 + 1, tier_start + 5):
+					var tier_range: Vector2i = _get_tier_range(target_idx, total_count)
+					var tier_start: int = tier_range.x
+					var tier_end: int = tier_range.y
+					for p1 in range(tier_start + 1, tier_end + 1):
+						for p2 in range(p1 + 1, tier_end + 1):
 							var cand: Array[LevelData] = run.duplicate()
 							var temp: LevelData = cand[p1]
 							cand[p1] = cand[p2]
@@ -503,10 +621,17 @@ func _cancel_pending_transition() -> void:
 func load_level(index: int) -> void:
 	_ensure_levels_loaded()
 	if current_run_levels.is_empty():
-		generate_run_sequence()
-		if not run_start_recorded_this_run:
-			run_start_recorded_this_run = true
-			if save_manager:
+		if current_run_mode == RunMode.DAILY:
+			generate_daily_run_sequence(active_daily_date_key)
+		else:
+			generate_run_sequence()
+
+	if not run_start_recorded_this_run:
+		run_start_recorded_this_run = true
+		if save_manager:
+			if current_run_mode == RunMode.DAILY:
+				save_manager.record_daily_started(active_daily_date_key)
+			else:
 				save_manager.record_run_started()
 
 	if current_run_levels.is_empty():
@@ -554,9 +679,9 @@ func load_level(index: int) -> void:
 	if level_indicator_label:
 		level_indicator_label.text = "Bölüm %d / %d" % [current_level_index + 1, current_run_levels.size()]
 
-	# Onboarding state: active only if tutorial not completed AND on index 0
+	# Onboarding state: active only for standard run, tutorial not completed, AND on index 0
 	var is_tutorial_pending: bool = (save_manager != null and not save_manager.get_tutorial_completed())
-	is_onboarding_active = is_tutorial_pending and (current_level_index == 0)
+	is_onboarding_active = (current_run_mode == RunMode.STANDARD) and is_tutorial_pending and (current_level_index == 0)
 
 	_kill_tutorial_pulse()
 
@@ -857,6 +982,9 @@ func _show_run_failure_overlay() -> void:
 	if not is_run_failed:
 		return
 
+	if save_manager and current_run_mode == RunMode.DAILY:
+		save_manager.record_daily_progress(active_daily_date_key, current_level_index, best_streak_this_run)
+
 	var motivation_text: String = _get_failure_motivation_text()
 
 	print("SHOWING RUN FAILURE OVERLAY - Level Reached: %d / %d, Run Best Streak: %d, Session Best Streak: %d, Motivation: '%s'" % [
@@ -879,6 +1007,13 @@ func _show_run_failure_overlay() -> void:
 		math_container.visible = false
 	if shape_container:
 		shape_container.visible = false
+
+	var failure_title_lbl: Label = run_failure_overlay.get_node_or_null("Card/CardTitle") as Label
+	if failure_title_lbl:
+		if current_run_mode == RunMode.DAILY:
+			failure_title_lbl.text = "Günün Turu Başarısız"
+		else:
+			failure_title_lbl.text = "Tur Başarısız"
 
 	if failure_progress_label:
 		failure_progress_label.text = "%d / %d Bölüme Ulaştın" % [current_level_index + 1, current_run_levels.size()]
@@ -1000,10 +1135,16 @@ func _on_completion() -> void:
 			else:
 				# Priority 3: Standard Success
 				if current_level_index == current_run_levels.size() - 1:
-					if mistakes_this_run == 0:
-						success_label.text = "Harika! Mükemmel Tur!"
+					if current_run_mode == RunMode.DAILY:
+						if mistakes_this_run == 0:
+							success_label.text = "Harika! Kusursuz Gün!"
+						else:
+							success_label.text = "Harika! Günün Turu Tamamlandı!"
 					else:
-						success_label.text = "Harika! Tur Tamamlandı!"
+						if mistakes_this_run == 0:
+							success_label.text = "Harika! Mükemmel Tur!"
+						else:
+							success_label.text = "Harika! Tur Tamamlandı!"
 				else:
 					success_label.text = "Harika!"
 
@@ -1031,7 +1172,7 @@ func _on_completion() -> void:
 	if next_button:
 		next_button.visible = false
 
-	# Schedule automatic transition for Levels 1 to 14, or summary overlay for Level 15
+	# Schedule automatic transition for intermediate levels, or summary overlay for final level
 	if current_level_index < current_run_levels.size() - 1:
 		_cancel_pending_transition()
 		transition_tween = create_tween()
@@ -1044,7 +1185,10 @@ func _on_completion() -> void:
 			run_completion_recorded_this_run = true
 			var is_perfect: bool = (mistakes_this_run == 0)
 			if save_manager:
-				save_manager.record_run_completed(is_perfect)
+				if current_run_mode == RunMode.DAILY:
+					save_manager.record_daily_completed(active_daily_date_key, is_perfect, best_streak_this_run)
+				else:
+					save_manager.record_run_completed(is_perfect)
 
 		summary_tween = create_tween()
 		summary_tween.tween_interval(summary_delay)
@@ -1106,7 +1250,8 @@ func _show_run_complete_overlay() -> void:
 		return
 
 	var is_perfect: bool = (mistakes_this_run == 0)
-	print("SHOWING RUN COMPLETE OVERLAY - Perfect: %s (Mistakes: %d), Final Streak: %d, Run Best Streak: %d, Personal Best Streak: %d" % [
+	print("SHOWING RUN COMPLETE OVERLAY - Mode: %s, Perfect: %s (Mistakes: %d), Final Streak: %d, Run Best Streak: %d, Personal Best Streak: %d" % [
+		"DAILY" if current_run_mode == RunMode.DAILY else "STANDARD",
 		str(is_perfect), mistakes_this_run, current_streak, best_streak_this_run, personal_best_streak
 	])
 
@@ -1131,12 +1276,20 @@ func _show_run_complete_overlay() -> void:
 		shape_container.visible = false
 
 	if summary_title_label:
-		if is_perfect:
-			summary_title_label.text = "Mükemmel Tur!\nKusursuz 15 / 15!"
-			summary_title_label.modulate = Color(1.0, 0.84, 0.31, 1.0)
+		if current_run_mode == RunMode.DAILY:
+			if is_perfect:
+				summary_title_label.text = "Kusursuz Gün!\n10 / 10"
+				summary_title_label.modulate = Color(1.0, 0.84, 0.31, 1.0)
+			else:
+				summary_title_label.text = "Günün Turu Tamamlandı!\n10 / 10"
+				summary_title_label.modulate = Color(0.305882, 0.878431, 0.419608, 1.0)
 		else:
-			summary_title_label.text = "Tur Tamamlandı!"
-			summary_title_label.modulate = Color(0.305882, 0.878431, 0.419608, 1.0)
+			if is_perfect:
+				summary_title_label.text = "Mükemmel Tur!\nKusursuz 15 / 15!"
+				summary_title_label.modulate = Color(1.0, 0.84, 0.31, 1.0)
+			else:
+				summary_title_label.text = "Tur Tamamlandı!"
+				summary_title_label.modulate = Color(0.305882, 0.878431, 0.419608, 1.0)
 
 	if summary_final_streak_label:
 		summary_final_streak_label.text = "Son Seri: x%d" % current_streak
@@ -1153,8 +1306,7 @@ func _show_run_complete_overlay() -> void:
 		overlay_tween.tween_property(run_complete_overlay, "modulate:a", 1.0, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
-func start_new_run() -> void:
-	print("STARTING NEW RUN (Play Again / Retry)")
+func _reset_run_state() -> void:
 	_cancel_pending_transition()
 	_kill_record_banner()
 
@@ -1167,14 +1319,11 @@ func start_new_run() -> void:
 	is_run_completed = false
 	is_run_failed = false
 	run_completion_recorded_this_run = false
+	run_start_recorded_this_run = false
 	puzzle_solve_recorded_this_level = false
 	current_lives = max_lives
 	current_streak = 0
 	best_streak_this_run = 0
-
-	run_start_recorded_this_run = true
-	if save_manager:
-		save_manager.record_run_started()
 
 	if record_banner:
 		record_banner.visible = false
@@ -1192,6 +1341,13 @@ func start_new_run() -> void:
 		prompt_label.visible = true
 
 	_update_lives_ui(false)
+
+
+func start_new_run() -> void:
+	print("STARTING NEW RUN (Play Again / Retry)")
+	current_run_mode = RunMode.STANDARD
+	active_daily_date_key = 0
+	_reset_run_state()
 	generate_run_sequence()
 	load_level(0)
 
@@ -1318,6 +1474,8 @@ func cleanup_run() -> void:
 		previous_run_levels = current_run_levels.duplicate()
 
 	current_run_levels.clear()
+	current_run_mode = RunMode.STANDARD
+	active_daily_date_key = 0
 	current_level_data = null
 	current_level_index = 0
 	current_lives = max_lives
