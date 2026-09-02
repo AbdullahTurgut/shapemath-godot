@@ -1,4 +1,4 @@
-﻿class_name SquareFillSlot
+class_name SquareFillSlot
 extends Area2D
 
 @export var slot_index: int = 0
@@ -41,6 +41,13 @@ func reset_slot() -> void:
 		hint_label.modulate = Color.WHITE
 
 
+const SPATIAL_CUES_3X3: Array[String] = [
+	"⌜", "⊤", "⌝",
+	"⊢", "✦", "⊣",
+	"⌞", "⊥", "⌟"
+]
+
+
 func set_hint(piece_color: Color, symbol: String, hint_mode: int) -> void:
 	reset_slot()
 	match hint_mode:
@@ -60,11 +67,14 @@ func set_hint(piece_color: Color, symbol: String, hint_mode: int) -> void:
 				hint_label.visible = true
 				hint_label.text = symbol
 				hint_label.modulate = Color(0.5, 0.6, 0.75, 0.35)
-		_: # None / Hard (hint_mode >= 2)
+		_: # Spatial / Hard (hint_mode >= 2)
 			if hint_visual:
-				hint_visual.visible = false
-			if hint_label:
-				hint_label.visible = false
+				hint_visual.visible = true
+				hint_visual.color = Color(1.0, 1.0, 1.0, 0.03)
+			if hint_label and slot_index >= 0 and slot_index < SPATIAL_CUES_3X3.size():
+				hint_label.visible = true
+				hint_label.text = SPATIAL_CUES_3X3[slot_index]
+				hint_label.modulate = Color(0.4, 0.52, 0.68, 0.45)
 
 
 func flash_correct() -> void:

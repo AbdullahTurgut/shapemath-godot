@@ -57,6 +57,8 @@ func _notification(what: int) -> void:
 		update_responsive_layout()
 		if current_state == AppState.MAIN_MENU:
 			_refresh_main_menu()
+	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		DraggablePiece.cancel_active_drag_piece()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -65,6 +67,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _handle_back_request() -> void:
+	# Priority -1: If active piece is being held, cancel drag first
+	if is_instance_valid(DraggablePiece.active_drag_piece):
+		DraggablePiece.cancel_active_drag_piece()
+		return
+
 	# Priority 0: Exit confirmation overlay is open
 	if exit_confirmation_overlay and exit_confirmation_overlay.visible:
 		_on_exit_cancel_pressed()
@@ -332,6 +339,7 @@ func _refresh_main_menu() -> void:
 
 
 func _on_statistics_button_pressed() -> void:
+	DraggablePiece.cancel_active_drag_piece()
 	if exit_confirmation_overlay:
 		exit_confirmation_overlay.visible = false
 	if settings_overlay:
@@ -379,6 +387,7 @@ func _refresh_statistics_ui() -> void:
 
 
 func _on_settings_button_pressed() -> void:
+	DraggablePiece.cancel_active_drag_piece()
 	settings_origin = SettingsOrigin.MAIN_MENU
 	if exit_confirmation_overlay:
 		exit_confirmation_overlay.visible = false
@@ -392,6 +401,7 @@ func _on_settings_button_pressed() -> void:
 
 
 func _on_in_game_menu_pressed() -> void:
+	DraggablePiece.cancel_active_drag_piece()
 	settings_origin = SettingsOrigin.GAMEPLAY
 	if exit_confirmation_overlay:
 		exit_confirmation_overlay.visible = false

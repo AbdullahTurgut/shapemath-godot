@@ -42,6 +42,11 @@ static var active_drag_piece: DraggablePiece = null
 static func clear_active_drag() -> void:
 	active_drag_piece = null
 
+static func cancel_active_drag_piece() -> void:
+	if is_instance_valid(active_drag_piece):
+		active_drag_piece.cancel_drag()
+	active_drag_piece = null
+
 var return_tween: Tween = null
 var scale_tween: Tween = null
 var lift_tween: Tween = null
@@ -60,6 +65,12 @@ func set_hitbox_size(box_size: Vector2) -> void:
 		var rect_shape := RectangleShape2D.new()
 		rect_shape.size = box_size
 		cs.shape = rect_shape
+
+
+func _exit_tree() -> void:
+	if active_drag_piece == self:
+		active_drag_piece = null
+	_kill_active_tweens()
 
 
 func _ready() -> void:

@@ -1037,6 +1037,22 @@ const DEFAULT_SQUARE_FILL_SYMBOLS: Array[String] = [
 ]
 
 
+static func get_deterministic_shelf_order(seed_val: int) -> Array[int]:
+	var order: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_val
+	for i in range(order.size() - 1, 0, -1):
+		var j: int = rng.randi_range(0, i)
+		var temp: int = order[i]
+		order[i] = order[j]
+		order[j] = temp
+	return order
+
+
+func cancel_active_drag() -> void:
+	DraggablePiece.cancel_active_drag_piece()
+
+
 func _setup_square_fill_level() -> void:
 	if math_container:
 		math_container.visible = false
@@ -1094,10 +1110,12 @@ func _setup_square_fill_level() -> void:
 		slot_inst.set_hint(colors[i], symbols[i], hint_mode)
 		square_fill_slots.append(slot_inst)
 
-	# 2. Determine shelf spawn order
-	var shelf_order: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+	# 2. Determine shelf spawn order (Authored or Deterministic Fallback)
+	var shelf_order: Array[int] = []
 	if current_level_data and current_level_data.square_fill_shelf_order.size() == 9:
 		shelf_order = current_level_data.square_fill_shelf_order.duplicate()
+	else:
+		shelf_order = get_deterministic_shelf_order(current_level_index * 1337 + 42)
 
 	# 3. Squircle polygon for pieces (84x84)
 	var piece_poly: PackedVector2Array = PackedVector2Array([
@@ -1142,19 +1160,17 @@ func _on_square_fill_piece_dropped(piece: DraggablePiece) -> void:
 	var target_slot: SquareFillSlot = null
 	var min_dist: float = 999999.0
 
+	# Deterministic single nearest slot resolution with lowest slot_index tie-breaking
 	for area in overlapping_areas:
 		if area is SquareFillSlot:
 			var d: float = piece.global_position.distance_to(area.global_position)
-			if d < min_dist and d <= 65.0:
+			if d < min_dist or (is_equal_approx(d, min_dist) and target_slot != null and area.slot_index < target_slot.slot_index):
 				min_dist = d
 				target_slot = area
 
 	if target_slot != null:
-		if target_slot.is_occupied:
-			print("OCCUPIED SLOT: Slot %d is already occupied" % target_slot.slot_index)
-			piece.return_neutral()
-		elif target_slot.slot_index == piece.target_slot_index:
-			# Atomic Placement Guard: verify not already locked / occupied
+		# A. CORRECT SLOT: Generous snap radius (d <= 65.0px)
+		if target_slot.slot_index == piece.target_slot_index and min_dist <= 65.0:
 			if piece.is_locked or target_slot.is_occupied:
 				return
 
@@ -1164,7 +1180,7 @@ func _on_square_fill_piece_dropped(piece: DraggablePiece) -> void:
 			piece.disable_drag()
 
 			placed_square_fill_count += 1
-			print("CORRECT SQUARE FILL PIECE: Piece %d placed into Slot %d (Count: %d/9)" % [piece.piece_id, target_slot.slot_index, placed_square_fill_count])
+			print("CORRECT SQUARE FILL PIECE: Piece %d placed into Slot %d (Count: %d/9, dist: %.1f)" % [piece.piece_id, target_slot.slot_index, placed_square_fill_count, min_dist])
 
 			target_slot.flash_correct()
 			piece.play_success_feedback(target_slot.global_position, 0.22)
@@ -1180,10 +1196,27 @@ func _on_square_fill_piece_dropped(piece: DraggablePiece) -> void:
 						success_burst.position = Vector2(360.0, 430.0 + gameplay_y_offset)
 						success_burst.restart()
 					_on_completion()
-		else:
-			print("DELIBERATE WRONG ATTEMPT: Piece %d placed into wrong Slot %d (expected %d)" % [piece.piece_id, target_slot.slot_index, piece.target_slot_index])
+
+		# B. OCCUPIED SLOT: Neutral drop (0 life loss)
+		elif target_slot.is_occupied:
+			print("OCCUPIED SLOT: Slot %d is already occupied (dist: %.1f) -> Neutral return" % [target_slot.slot_index, min_dist])
+			piece.return_neutral()
+
+		# C. WRONG UNOCCUPIED SLOT: Inner intent circle (d <= 45.0px) -> Deliberate wrong penalty
+		elif min_dist <= 45.0:
+			print("DELIBERATE WRONG ATTEMPT: Piece %d placed into wrong Slot %d (expected %d, dist: %.1f)" % [piece.piece_id, target_slot.slot_index, piece.target_slot_index, min_dist])
 			target_slot.flash_wrong()
 			_handle_deliberate_failure(piece)
+
+		# D. WRONG SLOT IN OUTER TOLERANCE BAND (45.0px < d <= 65.0px) -> Neutral forgiveness (0 life loss)
+		elif min_dist <= 65.0:
+			print("OUTER BAND FORGIVENESS: Piece %d near wrong Slot %d (dist: %.1f > 45px) -> Neutral return" % [piece.piece_id, target_slot.slot_index, min_dist])
+			piece.return_neutral()
+
+		# E. Outside snap tolerance
+		else:
+			print("CANCELLED DROP: Square Fill piece %d released in empty space (dist: %.1f > 65px)" % [piece.piece_id, min_dist])
+			piece.return_neutral()
 	else:
 		print("CANCELLED DROP: Square Fill piece %d released in empty space (no penalty)" % piece.piece_id)
 		piece.return_neutral()
