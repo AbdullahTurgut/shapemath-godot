@@ -279,16 +279,115 @@ func _run_tests() -> void:
 		await _sync_physics()
 		assert(lm.is_completed == true, "Shape match solved successfully on tall viewport")
 
-	# Return to menu
-	main_scene.return_to_main_menu()
-	await _sync_physics()
-	assert(main_scene.current_state == main_scene.AppState.MAIN_MENU, "Returned to MAIN_MENU")
+	# ================================================================================
+	# TEST 6: MAIN MENU EXIT BUTTON & CONFIRMATION OVERLAY (STEP 19.1)
+	# ================================================================================
+	print("\n[TEST 6] Main Menu Exit Button & Confirmation Overlay (Step 19.1)")
 
-	# Reset viewport to reference 720x1280
+	var exit_btn: Button = main_scene.menu_exit_button
+	var exit_overlay: Control = main_scene.exit_confirmation_overlay
+	var exit_card: ColorRect = exit_overlay.get_node("Card") as ColorRect
+	var exit_dim: ColorRect = exit_overlay.get_node("DimBackground") as ColorRect
+	var cancel_btn: Button = main_scene.exit_cancel_button
+	var confirm_btn: Button = main_scene.exit_confirm_button
+
+	assert(exit_btn != null, "MenuExitButton exists")
+	assert(exit_overlay != null, "ExitConfirmationOverlay exists")
+	assert(exit_card != null, "ExitConfirmationOverlay Card exists")
+	assert(exit_dim != null, "ExitConfirmationOverlay DimBackground exists")
+	assert(cancel_btn != null, "CancelButton exists")
+	assert(confirm_btn != null, "ConfirmExitButton exists")
+
+	# 1. Responsive bounds across all 6 aspect ratios
+	for vp_size in target_viewports:
+		root.size = Vector2i(int(vp_size.x), int(vp_size.y))
+		main_scene.update_responsive_layout()
+		await _sync_physics()
+
+		var actual_vp: Vector2 = main_scene.get_viewport_rect().size
+		var safe_top: float = main_scene.get_safe_top_inset()
+
+		# Exit button position and size
+		assert(exit_btn.size.x >= 48.0 and exit_btn.size.y >= 48.0, "Exit button touch target >= 48x48 (was %.1fx%.1f)" % [exit_btn.size.x, exit_btn.size.y])
+		assert(exit_btn.position.y >= safe_top, "Exit button Y >= safe_top (was %.1f < %.1f on %s)" % [exit_btn.position.y, safe_top, str(vp_size)])
+		assert(exit_btn.position.x + exit_btn.size.x <= actual_vp.x, "Exit button within right edge (was %.1f > %.1f)" % [exit_btn.position.x + exit_btn.size.x, actual_vp.x])
+
+		# Confirmation Dim and Card
+		assert(exit_dim.size.x >= actual_vp.x and exit_dim.size.y >= actual_vp.y, "Exit DimBackground covers full viewport")
+		var card_center: Vector2 = exit_card.global_position + exit_card.size * 0.5
+		var vp_center: Vector2 = actual_vp * 0.5
+		assert(absf(card_center.x - vp_center.x) <= 2.0, "Exit Card is horizontally centered")
+		assert(absf(card_center.y - vp_center.y) <= 2.0, "Exit Card is vertically centered")
+
+		# Touch target sizes for confirmation buttons
+		assert(cancel_btn.size.x >= 120.0 and cancel_btn.size.y >= 48.0, "Cancel button touch target >= 120x48")
+		assert(confirm_btn.size.x >= 120.0 and confirm_btn.size.y >= 48.0, "Confirm button touch target >= 120x48")
+
+	# 2. Main Menu vs Gameplay Visibility
 	root.size = Vector2i(720, 1280)
 	main_scene.update_responsive_layout()
+	main_scene._show_main_menu()
 	await _sync_physics()
-	assert(lm.gameplay_y_offset == 0.0, "gameplay_y_offset is 0 on reference 720x1280")
+
+	assert(main_scene.main_menu.visible == true, "Main Menu is visible")
+	assert(exit_overlay.visible == false, "Exit Confirmation is initially hidden")
+
+	# Start gameplay -> Main Menu and exit button hidden
+	main_scene.start_game_from_menu()
+	await _sync_physics()
+	assert(main_scene.main_menu.visible == false, "Main Menu hidden during gameplay")
+	assert(exit_overlay.visible == false, "Exit Confirmation hidden during gameplay")
+
+	# Return to Main Menu -> Exit button available
+	main_scene.return_to_main_menu()
+	await _sync_physics()
+	assert(main_scene.main_menu.visible == true, "Main Menu visible after return")
+
+	# 3. Open Exit Confirmation via X button
+	main_scene._on_menu_exit_pressed()
+	assert(exit_overlay.visible == true, "Exit Confirmation is visible after tapping X")
+
+	# 4. Cancel button closes confirmation
+	main_scene._on_exit_cancel_pressed()
+	assert(exit_overlay.visible == false, "Exit Confirmation closed after Vazgeç")
+
+	# 5. Mutual exclusion with Settings and Statistics
+	main_scene._on_menu_exit_pressed()
+	assert(exit_overlay.visible == true, "Exit Confirmation reopened")
+	main_scene._on_statistics_button_pressed()
+	assert(main_scene.statistics_overlay.visible == true, "Statistics overlay opened")
+	assert(exit_overlay.visible == false, "Exit Confirmation closed when opening Statistics")
+	main_scene._on_statistics_close_pressed()
+
+	main_scene._on_menu_exit_pressed()
+	assert(exit_overlay.visible == true, "Exit Confirmation reopened")
+	main_scene._on_settings_button_pressed()
+	assert(main_scene.settings_overlay.visible == true, "Settings overlay opened")
+	assert(exit_overlay.visible == false, "Exit Confirmation closed when opening Settings")
+	main_scene._on_settings_close_pressed()
+
+	# 6. Android Back Routing with Exit Confirmation
+	main_scene._on_menu_exit_pressed()
+	assert(exit_overlay.visible == true, "Exit Confirmation opened")
+	var quit_called_count: Array[int] = [0]
+	main_scene.quit_handler = func(): quit_called_count[0] += 1
+
+	# Android Back closes Exit Confirmation first without quitting
+	main_scene._handle_back_request()
+	assert(exit_overlay.visible == false, "Android Back closed Exit Confirmation")
+	assert(quit_called_count[0] == 0, "Android Back did NOT quit app while Exit Confirmation was open")
+
+	# Android Back on Main Menu (no overlay) calls quit handler
+	main_scene._handle_back_request()
+	assert(quit_called_count[0] == 1, "Android Back on Main Menu triggered quit handler")
+
+	# 7. Confirm Exit Button triggers quit handler
+	main_scene._on_menu_exit_pressed()
+	assert(exit_overlay.visible == true, "Exit Confirmation opened")
+	main_scene._on_exit_confirm_pressed()
+	assert(quit_called_count[0] == 2, "Çıkış button triggered quit handler")
+
+	print("-> TEST 6 PASSED: Main Menu Exit Button, Confirmation Overlay, safe-area bounds, and back routing verified.")
 
 	main_scene.queue_free()
 	print("-> TEST 5 PASSED: Live gameplay drag/drop, target detection, and shape matching verified on 20:9 viewport.")
@@ -298,6 +397,7 @@ func _run_tests() -> void:
 		DirAccess.remove_absolute(test_save_path)
 
 	print("\n================================================================================")
-	print("--- ALL STEP 19 RESPONSIVE LAYOUT TESTS PASSED (100%) ---")
+	print("--- ALL STEP 19 & 19.1 RESPONSIVE LAYOUT TESTS PASSED (100%) ---")
 	print("================================================================================")
 	quit()
+

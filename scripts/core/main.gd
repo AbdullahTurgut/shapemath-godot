@@ -24,7 +24,11 @@ var quit_handler: Callable = Callable()
 @onready var daily_challenge_button: Button = $MainMenu/DailyChallengeButton
 @onready var statistics_button: Button = $MainMenu/StatisticsButton
 @onready var settings_button: Button = $MainMenu/SettingsButton
+@onready var menu_exit_button: Button = $MainMenu/MenuExitButton
 @onready var in_game_menu_button: Button = $InGameMenuButton
+@onready var exit_confirmation_overlay: Control = $ExitConfirmationOverlay
+@onready var exit_cancel_button: Button = $ExitConfirmationOverlay/Card/CancelButton
+@onready var exit_confirm_button: Button = $ExitConfirmationOverlay/Card/ConfirmExitButton
 @onready var statistics_overlay: Control = $StatisticsOverlay
 @onready var statistics_close_button: Button = $StatisticsOverlay/Card/CloseButton
 @onready var stat_best_streak_value: Label = $StatisticsOverlay/Card/BestStreakValue
@@ -61,6 +65,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _handle_back_request() -> void:
+	# Priority 0: Exit confirmation overlay is open
+	if exit_confirmation_overlay and exit_confirmation_overlay.visible:
+		_on_exit_cancel_pressed()
+		return
+
 	# Priority 1: Statistics overlay is open
 	if statistics_overlay and statistics_overlay.visible:
 		_on_statistics_close_pressed()
@@ -88,7 +97,7 @@ func _handle_back_request() -> void:
 
 	# Priority 6: Main Menu -> exit app
 	if current_state == AppState.MAIN_MENU:
-		if not quit_handler.is_null():
+		if quit_handler.is_valid():
 			quit_handler.call()
 		else:
 			get_tree().quit()
@@ -147,6 +156,13 @@ func _ready() -> void:
 	if failure_menu_button and not failure_menu_button.pressed.is_connected(return_to_main_menu):
 		failure_menu_button.pressed.connect(return_to_main_menu)
 
+	if menu_exit_button and not menu_exit_button.pressed.is_connected(_on_menu_exit_pressed):
+		menu_exit_button.pressed.connect(_on_menu_exit_pressed)
+	if exit_cancel_button and not exit_cancel_button.pressed.is_connected(_on_exit_cancel_pressed):
+		exit_cancel_button.pressed.connect(_on_exit_cancel_pressed)
+	if exit_confirm_button and not exit_confirm_button.pressed.is_connected(_on_exit_confirm_pressed):
+		exit_confirm_button.pressed.connect(_on_exit_confirm_pressed)
+
 	var vp: Viewport = get_viewport()
 	if vp and not vp.size_changed.is_connected(_on_viewport_size_changed):
 		vp.size_changed.connect(_on_viewport_size_changed)
@@ -183,12 +199,14 @@ func update_responsive_layout() -> void:
 		settings_overlay.size = vp_size
 	if statistics_overlay:
 		statistics_overlay.size = vp_size
+	if exit_confirmation_overlay:
+		exit_confirmation_overlay.size = vp_size
 	if run_complete_overlay:
 		run_complete_overlay.size = vp_size
 	if run_failure_overlay:
 		run_failure_overlay.size = vp_size
 
-	# 2. Main Menu vertical centering
+	# 2. Main Menu vertical centering & exit button
 	if main_menu:
 		var menu_content_height: float = 635.0
 		var menu_start_y: float = maxf(safe_top + 40.0, (vp_size.y - menu_content_height) * 0.5)
@@ -210,6 +228,8 @@ func update_responsive_layout() -> void:
 			statistics_button.position = Vector2((vp_size.x - statistics_button.size.x) * 0.5, menu_start_y + 475.0)
 		if settings_button:
 			settings_button.position = Vector2((vp_size.x - settings_button.size.x) * 0.5, menu_start_y + 565.0)
+		if menu_exit_button:
+			menu_exit_button.position = Vector2(vp_size.x - menu_exit_button.size.x - 40.0, safe_top + 5.0)
 
 	# 3. Top HUD positioning
 	var level_lbl: Label = get_node_or_null("LevelIndicatorLabel") as Label
@@ -234,6 +254,27 @@ func update_responsive_layout() -> void:
 		level_manager.update_responsive_layout(vp_size, safe_top)
 
 
+func _on_menu_exit_pressed() -> void:
+	if statistics_overlay:
+		statistics_overlay.visible = false
+	if settings_overlay:
+		settings_overlay.visible = false
+	if exit_confirmation_overlay:
+		exit_confirmation_overlay.visible = true
+
+
+func _on_exit_cancel_pressed() -> void:
+	if exit_confirmation_overlay:
+		exit_confirmation_overlay.visible = false
+
+
+func _on_exit_confirm_pressed() -> void:
+	if quit_handler.is_valid():
+		quit_handler.call()
+	else:
+		get_tree().quit()
+
+
 func _show_main_menu() -> void:
 	current_state = AppState.MAIN_MENU
 	update_responsive_layout()
@@ -241,6 +282,8 @@ func _show_main_menu() -> void:
 
 	if main_menu:
 		main_menu.visible = true
+	if exit_confirmation_overlay:
+		exit_confirmation_overlay.visible = false
 	if settings_overlay:
 		settings_overlay.visible = false
 	if statistics_overlay:
@@ -249,6 +292,8 @@ func _show_main_menu() -> void:
 		run_complete_overlay.visible = false
 	if run_failure_overlay:
 		run_failure_overlay.visible = false
+
+	_set_gameplay_visible(false)
 
 	_set_gameplay_visible(false)
 
@@ -289,6 +334,8 @@ func _refresh_main_menu() -> void:
 
 
 func _on_statistics_button_pressed() -> void:
+	if exit_confirmation_overlay:
+		exit_confirmation_overlay.visible = false
 	if settings_overlay:
 		settings_overlay.visible = false
 	_refresh_statistics_ui()
@@ -335,6 +382,8 @@ func _refresh_statistics_ui() -> void:
 
 func _on_settings_button_pressed() -> void:
 	settings_origin = SettingsOrigin.MAIN_MENU
+	if exit_confirmation_overlay:
+		exit_confirmation_overlay.visible = false
 	if statistics_overlay:
 		statistics_overlay.visible = false
 	_refresh_settings_ui()
@@ -346,6 +395,8 @@ func _on_settings_button_pressed() -> void:
 
 func _on_in_game_menu_pressed() -> void:
 	settings_origin = SettingsOrigin.GAMEPLAY
+	if exit_confirmation_overlay:
+		exit_confirmation_overlay.visible = false
 	if statistics_overlay:
 		statistics_overlay.visible = false
 	_refresh_settings_ui()
@@ -413,6 +464,8 @@ func start_game_from_menu() -> void:
 
 	if main_menu:
 		main_menu.visible = false
+	if exit_confirmation_overlay:
+		exit_confirmation_overlay.visible = false
 	if settings_overlay:
 		settings_overlay.visible = false
 	if statistics_overlay:
@@ -434,6 +487,8 @@ func start_daily_from_menu() -> void:
 
 	if main_menu:
 		main_menu.visible = false
+	if exit_confirmation_overlay:
+		exit_confirmation_overlay.visible = false
 	if settings_overlay:
 		settings_overlay.visible = false
 	if statistics_overlay:
