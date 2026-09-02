@@ -17,6 +17,7 @@ signal level_reset
 @export var shape_container: Node2D
 @export var math_container: Node2D
 @export var math_target_zone: Area2D
+@export var success_burst: CPUParticles2D
 @export var prompt_label: Label
 @export var onboarding_hint_label: Label
 @export var success_label: Label
@@ -920,6 +921,11 @@ func _process_shape_success(_piece1: DraggablePiece, _piece2: DraggablePiece) ->
 	var target_a: Vector2 = current_level_data.shape_a_target_pos + Vector2(0.0, gameplay_y_offset)
 	var target_b: Vector2 = current_level_data.shape_b_target_pos + Vector2(0.0, gameplay_y_offset)
 
+	if success_burst:
+		var target_center: Vector2 = (target_a + target_b) * 0.5
+		success_burst.position = target_center
+		success_burst.restart()
+
 	var tween_a: Tween = null
 	var tween_b: Tween = null
 
@@ -964,8 +970,31 @@ func _handle_deliberate_failure(piece: DraggablePiece) -> void:
 	if feedback_manager:
 		feedback_manager.play_wrong()
 	_reset_streak()
+	_flash_target_wrong()
 	piece.play_invalid_feedback()
 	_lose_life()
+
+
+func _flash_target_correct() -> void:
+	if not math_target_zone:
+		return
+	var border: Polygon2D = math_target_zone.get_node_or_null("Border") as Polygon2D
+	if border:
+		var orig_col: Color = border.color
+		var t := create_tween()
+		t.tween_property(border, "color", Color(0.28, 0.85, 0.45, 1.0), 0.08)
+		t.chain().tween_property(border, "color", orig_col, 0.25)
+
+
+func _flash_target_wrong() -> void:
+	if not math_target_zone:
+		return
+	var border: Polygon2D = math_target_zone.get_node_or_null("Border") as Polygon2D
+	if border:
+		var orig_col: Color = border.color
+		var t := create_tween()
+		t.tween_property(border, "color", Color(1.0, 0.38, 0.48, 1.0), 0.08)
+		t.chain().tween_property(border, "color", orig_col, 0.25)
 
 
 func _lose_life() -> void:
@@ -1100,6 +1129,11 @@ func _process_math_success(correct_piece: DraggablePiece) -> void:
 			piece.disable_drag()
 
 	var target_pos: Vector2 = math_target_zone.global_position
+	_flash_target_correct()
+	if success_burst:
+		success_burst.position = target_pos
+		success_burst.restart()
+
 	var tween: Tween = correct_piece.play_success_feedback(target_pos, 0.32)
 	tween.finished.connect(_on_completion)
 
@@ -1245,7 +1279,7 @@ func _show_record_celebration(streak_val: int) -> void:
 		return
 
 	if record_title_label:
-		record_title_label.text = "Yeni Kişisel Rekor!"
+		record_title_label.text = "★ Yeni Kişisel Rekor! ★"
 	if record_value_label:
 		record_value_label.text = "x%d" % streak_val
 

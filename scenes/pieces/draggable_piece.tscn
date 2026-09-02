@@ -1,4 +1,4 @@
-﻿[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/draggable_piece.gd" id="1_piece"]
 
@@ -11,9 +11,22 @@ script = ExtResource("1_piece")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_1")
 
+[node name="Shadow" type="Polygon2D" parent="."]
+position = Vector2(0, 4)
+color = Color(0, 0, 0, 0.28)
+polygon = PackedVector2Array(-44, -60, 44, -60, 55, -55, 60, -44, 60, 44, 55, 55, 44, 60, -44, 60, -55, 55, -60, 44, -60, -44, -55, -55)
+
 [node name="Visual" type="Polygon2D" parent="."]
 color = Color(0.258824, 0.647059, 0.960784, 1)
-polygon = PackedVector2Array(-60, -60, 60, -60, 60, 60, -60, 60)
+polygon = PackedVector2Array(-44, -60, 44, -60, 55, -55, 60, -44, 60, 44, 55, 55, 44, 60, -44, 60, -55, 55, -60, 44, -60, -44, -55, -55)
+
+[node name="Border" type="Line2D" parent="."]
+points = PackedVector2Array(-44, -60, 44, -60, 55, -55, 60, -44, 60, 44, 55, 55, 44, 60, -44, 60, -55, 55, -60, 44, -60, -44, -55, -55, -44, -60)
+width = 2.5
+default_color = Color(1, 1, 1, 0.25)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
 
 [node name="ValueLabel" type="Label" parent="."]
 offset_left = -60.0

@@ -295,8 +295,6 @@ func _show_main_menu() -> void:
 
 	_set_gameplay_visible(false)
 
-	_set_gameplay_visible(false)
-
 
 var _menu_refresh_timer: float = 0.0
 

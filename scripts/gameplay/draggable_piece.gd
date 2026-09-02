@@ -41,6 +41,8 @@ var feedback_tween: Tween = null
 var _original_position_captured: bool = false
 
 @onready var visual: Polygon2D = $Visual
+@onready var shadow: Polygon2D = get_node_or_null("Shadow") as Polygon2D
+@onready var border: Line2D = get_node_or_null("Border") as Line2D
 @onready var value_label: Label = $ValueLabel
 
 
@@ -54,6 +56,13 @@ func _ready() -> void:
 		visual.color = piece_color
 		if not polygon_points.is_empty():
 			visual.polygon = polygon_points
+	if shadow and not polygon_points.is_empty():
+		shadow.polygon = polygon_points
+	if border and not polygon_points.is_empty():
+		var line_pts := polygon_points.duplicate()
+		line_pts.append(line_pts[0])
+		border.points = line_pts
+
 	if value_label:
 		value_label.text = piece_text
 		_update_label_font_size()
@@ -78,6 +87,12 @@ func set_custom_polygon(points: PackedVector2Array) -> void:
 	polygon_points = points
 	if visual and not points.is_empty():
 		visual.polygon = points
+	if shadow and not points.is_empty():
+		shadow.polygon = points
+	if border and not points.is_empty():
+		var line_pts := points.duplicate()
+		line_pts.append(line_pts[0])
+		border.points = line_pts
 
 
 func _kill_active_tweens() -> void:
@@ -133,10 +148,14 @@ func _start_drag(touch_index: int) -> void:
 	drag_offset = global_position - get_global_mouse_position()
 	z_index = 10
 
-	# Pickup scale punch
+	# Pickup scale punch & shadow depth
 	scale_tween = create_tween()
-	scale_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	scale_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	scale_tween.tween_property(self, "scale", Vector2.ONE * pickup_scale, 0.12)
+	if shadow:
+		var shadow_tween := create_tween()
+		shadow_tween.tween_property(shadow, "position", Vector2(0.0, 8.0), 0.12)
+		shadow_tween.parallel().tween_property(shadow, "color:a", 0.38, 0.12)
 
 	# Touch lift to avoid finger occlusion
 	if active_touch_index != -1:
@@ -166,10 +185,14 @@ func _end_drag() -> void:
 		scale_tween.kill()
 		scale_tween = null
 
-	# Release scale recovery
+	# Release scale recovery & shadow reset
 	scale_tween = create_tween()
 	scale_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	scale_tween.tween_property(self, "scale", Vector2.ONE, 0.12)
+	if shadow:
+		var shadow_tween := create_tween()
+		shadow_tween.tween_property(shadow, "position", Vector2(0.0, 4.0), 0.12)
+		shadow_tween.parallel().tween_property(shadow, "color:a", 0.28, 0.12)
 
 	piece_dropped.emit(self)
 
@@ -191,19 +214,22 @@ func play_invalid_feedback() -> Tween:
 
 	feedback_tween = create_tween()
 
-	# Subtle red tint
+	# Subtle coral/red tint
 	feedback_tween.tween_property(self, "modulate", Color(1.0, 0.45, 0.45, 1.0), 0.05)
 
-	# Horizontal shake around drop position (±12px, ±8px, ±4px)
-	feedback_tween.parallel().tween_property(self, "global_position", drop_pos + Vector2(12.0, 0.0), 0.04).set_trans(Tween.TRANS_SINE)
-	feedback_tween.tween_property(self, "global_position", drop_pos + Vector2(-10.0, 0.0), 0.04).set_trans(Tween.TRANS_SINE)
-	feedback_tween.tween_property(self, "global_position", drop_pos + Vector2(6.0, 0.0), 0.04).set_trans(Tween.TRANS_SINE)
+	# Horizontal springy shake around drop position (±10px, -8px, +5px)
+	feedback_tween.parallel().tween_property(self, "global_position", drop_pos + Vector2(10.0, 0.0), 0.04).set_trans(Tween.TRANS_SINE)
+	feedback_tween.tween_property(self, "global_position", drop_pos + Vector2(-8.0, 0.0), 0.04).set_trans(Tween.TRANS_SINE)
+	feedback_tween.tween_property(self, "global_position", drop_pos + Vector2(5.0, 0.0), 0.04).set_trans(Tween.TRANS_SINE)
 	feedback_tween.tween_property(self, "global_position", drop_pos, 0.04).set_trans(Tween.TRANS_SINE)
 
 	# Restore color and glide back to origin
 	feedback_tween.parallel().tween_property(self, "modulate", Color.WHITE, 0.14)
 	feedback_tween.tween_property(self, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	feedback_tween.parallel().tween_property(self, "global_position", original_position, return_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if shadow:
+		feedback_tween.parallel().tween_property(shadow, "position", Vector2(0.0, 4.0), return_duration)
+		feedback_tween.parallel().tween_property(shadow, "color:a", 0.28, return_duration)
 
 	feedback_tween.finished.connect(_on_invalid_feedback_finished)
 	return feedback_tween
@@ -213,6 +239,9 @@ func _on_invalid_feedback_finished() -> void:
 	z_index = 0
 	modulate = Color.WHITE
 	scale = Vector2.ONE
+	if shadow:
+		shadow.position = Vector2(0.0, 4.0)
+		shadow.color.a = 0.28
 	is_draggable = true
 	input_pickable = true
 
@@ -238,6 +267,9 @@ func play_success_feedback(target_pos: Vector2, duration: float = 0.32) -> Tween
 	feedback_tween.finished.connect(func():
 		modulate = Color.WHITE
 		scale = Vector2.ONE
+		if shadow:
+			shadow.position = Vector2(0.0, 4.0)
+			shadow.color.a = 0.28
 		z_index = 0
 	)
 
@@ -255,6 +287,9 @@ func disable_drag() -> void:
 	_kill_active_tweens()
 	scale = Vector2.ONE
 	modulate = Color.WHITE
+	if shadow:
+		shadow.position = Vector2(0.0, 4.0)
+		shadow.color.a = 0.28
 
 
 func reset_piece() -> void:
@@ -268,6 +303,9 @@ func reset_piece() -> void:
 	scale = Vector2.ONE
 	modulate = Color.WHITE
 	z_index = 0
+	if shadow:
+		shadow.position = Vector2(0.0, 4.0)
+		shadow.color.a = 0.28
 
 	if _original_position_captured:
 		global_position = original_position
@@ -292,6 +330,9 @@ func return_neutral(duration: float = 0.20) -> Tween:
 	feedback_tween = create_tween()
 	feedback_tween.tween_property(self, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	feedback_tween.parallel().tween_property(self, "global_position", original_position, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if shadow:
+		feedback_tween.parallel().tween_property(shadow, "position", Vector2(0.0, 4.0), duration)
+		feedback_tween.parallel().tween_property(shadow, "color:a", 0.28, duration)
 	feedback_tween.finished.connect(_on_invalid_feedback_finished)
 	return feedback_tween
 
