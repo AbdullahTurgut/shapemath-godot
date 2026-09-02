@@ -679,7 +679,7 @@ func load_level(index: int) -> void:
 		push_error("LevelManager: Invalid level index %d (max: %d)" % [index, current_run_levels.size() - 1])
 		return
 
-	_cancel_pending_transition()
+	_reset_puzzle_type_visual_state()
 	_kill_record_banner()
 
 	current_level_index = index
@@ -688,13 +688,6 @@ func load_level(index: int) -> void:
 	is_run_completed = false
 	is_run_failed = false
 	puzzle_solve_recorded_this_level = false
-
-	if active_tween and active_tween.is_valid():
-		active_tween.kill()
-		active_tween = null
-	if label_tween and label_tween.is_valid():
-		label_tween.kill()
-		label_tween = null
 
 	_reposition_gameplay_elements()
 
@@ -738,9 +731,6 @@ func load_level(index: int) -> void:
 	_update_streak_ui(false)
 	_update_lives_ui(false)
 
-	# Clear previous pieces
-	_cleanup_current_pieces()
-
 	# Build puzzle according to type
 	match current_level_data.puzzle_type:
 		LevelData.PuzzleType.MATH_MATCH, LevelData.PuzzleType.MISSING_NUMBER, LevelData.PuzzleType.EQUIVALENT_EXPRESSION, LevelData.PuzzleType.NUMBER_SEQUENCE:
@@ -771,6 +761,73 @@ func load_level(index: int) -> void:
 		current_streak,
 		best_streak_this_run
 	])
+
+
+func _reset_puzzle_type_visual_state() -> void:
+	_cancel_pending_transition()
+	_kill_tutorial_pulse()
+	if active_tween and active_tween.is_valid():
+		active_tween.kill()
+		active_tween = null
+	if label_tween and label_tween.is_valid():
+		label_tween.kill()
+		label_tween = null
+
+	if success_burst:
+		success_burst.emitting = false
+		success_burst.position = Vector2(360.0, 540.0 + gameplay_y_offset)
+
+	_cleanup_current_pieces()
+
+	if math_container:
+		math_container.visible = false
+		math_container.scale = Vector2.ONE
+		math_container.rotation = 0.0
+		math_container.modulate = Color.WHITE
+
+	if math_target_zone:
+		math_target_zone.visible = false
+		math_target_zone.position = Vector2(360.0, 540.0 + gameplay_y_offset)
+		math_target_zone.scale = Vector2.ONE
+		math_target_zone.rotation = 0.0
+		math_target_zone.modulate = Color.WHITE
+
+		var border: Polygon2D = math_target_zone.get_node_or_null("Border") as Polygon2D
+		if border:
+			border.color = Color(0.25098, 0.321569, 0.439216, 1.0)
+			border.scale = Vector2.ONE
+			border.modulate = Color.WHITE
+
+		var slot: Polygon2D = math_target_zone.get_node_or_null("Slot") as Polygon2D
+		if slot:
+			slot.color = Color(0.121569, 0.141176, 0.2, 1.0)
+			slot.scale = Vector2.ONE
+			slot.modulate = Color.WHITE
+
+		var placeholder_lbl: Label = math_target_zone.get_node_or_null("PlaceholderLabel") as Label
+		if placeholder_lbl:
+			placeholder_lbl.text = ""
+			placeholder_lbl.visible = false
+			placeholder_lbl.modulate = Color.WHITE
+
+	if shape_container:
+		shape_container.visible = false
+		shape_container.scale = Vector2.ONE
+		shape_container.rotation = 0.0
+		shape_container.modulate = Color.WHITE
+
+	if success_label:
+		success_label.visible = false
+		success_label.scale = Vector2.ONE
+		success_label.modulate = Color.WHITE
+		success_label.text = "Harika!"
+
+	if onboarding_hint_label:
+		onboarding_hint_label.visible = false
+		onboarding_hint_label.modulate = Color.WHITE
+
+	if next_button:
+		next_button.visible = false
 
 
 func _cleanup_current_pieces() -> void:
@@ -805,13 +862,21 @@ func _setup_math_level() -> void:
 		math_container.visible = true
 
 	if math_target_zone:
+		math_target_zone.visible = true
 		math_target_zone.position = Vector2(360.0, 540.0 + gameplay_y_offset)
+		var border: Polygon2D = math_target_zone.get_node_or_null("Border") as Polygon2D
+		if border:
+			border.color = Color(0.25098, 0.321569, 0.439216, 1.0)
 		var placeholder_lbl: Label = math_target_zone.get_node_or_null("PlaceholderLabel") as Label
 		if placeholder_lbl:
-			if not current_level_data.target_display.is_empty():
+			if current_level_data and not current_level_data.target_display.is_empty():
 				placeholder_lbl.text = current_level_data.target_display
 			else:
 				placeholder_lbl.text = "?"
+			placeholder_lbl.visible = true
+
+	if not current_level_data:
+		return
 
 	var choices: Array[String] = current_level_data.answer_choices
 	var count: int = choices.size()
@@ -853,8 +918,17 @@ func _setup_math_level() -> void:
 func _setup_shape_level() -> void:
 	if math_container:
 		math_container.visible = false
+	if math_target_zone:
+		math_target_zone.visible = false
+		var placeholder_lbl: Label = math_target_zone.get_node_or_null("PlaceholderLabel") as Label
+		if placeholder_lbl:
+			placeholder_lbl.text = ""
+			placeholder_lbl.visible = false
 	if shape_container:
 		shape_container.visible = true
+
+	if not current_level_data:
+		return
 
 	# Spawn Piece A
 	var piece_a: DraggablePiece = piece_scene.instantiate() as DraggablePiece
@@ -1582,7 +1656,7 @@ func cleanup_run() -> void:
 	personal_best_at_run_start = personal_best_streak
 	record_broken_this_run = false
 
-	_cleanup_current_pieces()
+	_reset_puzzle_type_visual_state()
 
 	if onboarding_hint_label:
 		onboarding_hint_label.visible = false

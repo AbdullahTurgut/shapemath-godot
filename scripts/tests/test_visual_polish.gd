@@ -1,4 +1,4 @@
-﻿extends SceneTree
+extends SceneTree
 
 const SaveManager = preload("res://scripts/core/save_manager.gd")
 const LevelManager = preload("res://scripts/core/level_manager.gd")
@@ -50,6 +50,9 @@ func _run_tests() -> void:
 	await test_target_zone_and_particles()
 	await test_run_state_visual_resets()
 	await test_daily_button_cooldown_styling()
+	await test_first_level_shape_match_isolation()
+	await test_puzzle_type_transition_matrix()
+	await test_run_lifecycle_isolation()
 
 	print("\n==========================================")
 	print("TEST RESULTS: %d PASSED, %d FAILED" % [passed, failed])
@@ -253,5 +256,194 @@ func test_daily_button_cooldown_styling() -> void:
 
 	if FileAccess.file_exists(test_save_path):
 		DirAccess.remove_absolute(test_save_path)
+
+	main_node.queue_free()
+
+
+func test_first_level_shape_match_isolation() -> void:
+	print("\n[TEST] Physical Bug Scenario: First Level SHAPE_MATCH Clean State via Menu Start")
+	var main_node: Node2D = MainScene.instantiate() as Node2D
+	root.add_child(main_node)
+	await _sync_physics()
+
+	var level_manager: LevelManager = main_node.get_node_or_null("LevelManager") as LevelManager
+	var math_container: Node2D = main_node.get_node_or_null("MathContainer") as Node2D
+	var shape_container: Node2D = main_node.get_node_or_null("ShapeContainer") as Node2D
+	var math_target_zone: Area2D = main_node.get_node_or_null("MathContainer/TargetZone") as Area2D
+	var placeholder_label: Label = main_node.get_node_or_null("MathContainer/TargetZone/PlaceholderLabel") as Label
+	var prompt_label: Label = main_node.get_node_or_null("PromptLabel") as Label
+
+	# Create a dummy LevelData for SHAPE_MATCH as first level
+	var shape_level: LevelData = LevelData.new()
+	shape_level.puzzle_type = LevelData.PuzzleType.SHAPE_MATCH
+	shape_level.prompt_text = "Parçaları birleştir"
+	shape_level.match_id = "test_shape"
+	shape_level.shape_a_spawn_pos = Vector2(240, 920)
+	shape_level.shape_b_spawn_pos = Vector2(480, 920)
+	shape_level.shape_a_target_pos = Vector2(300, 540)
+	shape_level.shape_b_target_pos = Vector2(420, 540)
+
+	# Start game from menu, then set current_run_levels and load shape level
+	main_node.start_game_from_menu()
+	level_manager.current_run_levels = [shape_level]
+	level_manager.load_level(0)
+	main_node._set_gameplay_visible(true)
+	await _sync_physics()
+
+	# Assertions matching physical bug report
+	assert_true(shape_container.visible, "ShapeContainer is visible for SHAPE_MATCH level 1")
+	assert_true(not math_container.visible, "MathContainer is hidden for SHAPE_MATCH level 1")
+	assert_true(not math_target_zone.visible, "Math TargetZone is hidden for SHAPE_MATCH level 1")
+	assert_true(not placeholder_label.visible or placeholder_label.text.is_empty(), "PlaceholderLabel has no visible text for SHAPE_MATCH")
+	assert_eq(prompt_label.text, "Parçaları birleştir", "Prompt matches SHAPE_MATCH prompt text")
+	assert_eq(level_manager.shape_pieces.size(), 2, "2 shape pieces spawned")
+	assert_eq(level_manager.math_pieces.size(), 0, "0 math pieces spawned")
+
+	main_node.queue_free()
+
+
+func test_puzzle_type_transition_matrix() -> void:
+	print("\n[TEST] Bidirectional Puzzle Type Transition Matrix")
+	var main_node: Node2D = MainScene.instantiate() as Node2D
+	root.add_child(main_node)
+	await _sync_physics()
+
+	var level_manager: LevelManager = main_node.get_node_or_null("LevelManager") as LevelManager
+	var math_container: Node2D = main_node.get_node_or_null("MathContainer") as Node2D
+	var shape_container: Node2D = main_node.get_node_or_null("ShapeContainer") as Node2D
+	var math_target_zone: Area2D = main_node.get_node_or_null("MathContainer/TargetZone") as Area2D
+	var placeholder_label: Label = main_node.get_node_or_null("MathContainer/TargetZone/PlaceholderLabel") as Label
+
+	# Create representative levels for all 5 puzzle types
+	var math_match_lvl: LevelData = LevelData.new()
+	math_match_lvl.puzzle_type = LevelData.PuzzleType.MATH_MATCH
+	math_match_lvl.prompt_text = "1 + 2 = ?"
+	math_match_lvl.target_display = "?"
+	math_match_lvl.correct_answer = "3"
+	math_match_lvl.answer_choices = ["1", "2", "3", "4"]
+
+	var shape_match_lvl: LevelData = LevelData.new()
+	shape_match_lvl.puzzle_type = LevelData.PuzzleType.SHAPE_MATCH
+	shape_match_lvl.prompt_text = "Parçaları birleştir"
+	shape_match_lvl.match_id = "pair_1"
+	shape_match_lvl.shape_a_spawn_pos = Vector2(240, 920)
+	shape_match_lvl.shape_b_spawn_pos = Vector2(480, 920)
+
+	var missing_num_lvl: LevelData = LevelData.new()
+	missing_num_lvl.puzzle_type = LevelData.PuzzleType.MISSING_NUMBER
+	missing_num_lvl.prompt_text = "3 + ? = 7"
+	missing_num_lvl.target_display = "?"
+	missing_num_lvl.correct_answer = "4"
+	missing_num_lvl.answer_choices = ["2", "3", "4", "5"]
+
+	var equiv_expr_lvl: LevelData = LevelData.new()
+	equiv_expr_lvl.puzzle_type = LevelData.PuzzleType.EQUIVALENT_EXPRESSION
+	equiv_expr_lvl.prompt_text = "14 sayısını oluştur"
+	equiv_expr_lvl.target_display = "14"
+	equiv_expr_lvl.correct_answer = "8 + 6"
+	equiv_expr_lvl.answer_choices = ["8 + 6", "7 + 6", "9 + 4"]
+
+	var num_seq_lvl: LevelData = LevelData.new()
+	num_seq_lvl.puzzle_type = LevelData.PuzzleType.NUMBER_SEQUENCE
+	num_seq_lvl.prompt_text = "2, 4, 6, ?"
+	num_seq_lvl.target_display = "?"
+	num_seq_lvl.correct_answer = "8"
+	num_seq_lvl.answer_choices = ["7", "8", "9", "10"]
+
+	var transitions: Array = [
+		{"from": math_match_lvl, "to": shape_match_lvl, "name": "MATH_MATCH -> SHAPE_MATCH"},
+		{"from": missing_num_lvl, "to": shape_match_lvl, "name": "MISSING_NUMBER -> SHAPE_MATCH"},
+		{"from": equiv_expr_lvl, "to": shape_match_lvl, "name": "EQUIVALENT_EXPRESSION -> SHAPE_MATCH"},
+		{"from": num_seq_lvl, "to": shape_match_lvl, "name": "NUMBER_SEQUENCE -> SHAPE_MATCH"},
+		{"from": shape_match_lvl, "to": math_match_lvl, "name": "SHAPE_MATCH -> MATH_MATCH"},
+		{"from": shape_match_lvl, "to": missing_num_lvl, "name": "SHAPE_MATCH -> MISSING_NUMBER"},
+		{"from": shape_match_lvl, "to": equiv_expr_lvl, "name": "SHAPE_MATCH -> EQUIVALENT_EXPRESSION"},
+		{"from": shape_match_lvl, "to": num_seq_lvl, "name": "SHAPE_MATCH -> NUMBER_SEQUENCE"},
+	]
+
+	for tr in transitions:
+		var from_lvl: LevelData = tr["from"]
+		var to_lvl: LevelData = tr["to"]
+		var tr_name: String = tr["name"]
+
+		level_manager.current_run_levels = [from_lvl, to_lvl]
+		level_manager.load_level(0)
+		main_node._set_gameplay_visible(true)
+		await _sync_physics()
+
+		# Transition to level 1 (to_lvl)
+		level_manager.load_level(1)
+		main_node._set_gameplay_visible(true)
+		await _sync_physics()
+
+		if to_lvl.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
+			assert_true(shape_container.visible, "%s: ShapeContainer visible" % tr_name)
+			assert_true(not math_container.visible, "%s: MathContainer hidden" % tr_name)
+			assert_true(not math_target_zone.visible, "%s: Math TargetZone hidden" % tr_name)
+			assert_true(not placeholder_label.visible or placeholder_label.text.is_empty(), "%s: No placeholder label visible" % tr_name)
+			assert_eq(level_manager.math_pieces.size(), 0, "%s: 0 stale math pieces" % tr_name)
+			assert_eq(level_manager.shape_pieces.size(), 2, "%s: 2 shape pieces active" % tr_name)
+		else:
+			assert_true(math_container.visible, "%s: MathContainer visible" % tr_name)
+			assert_true(not shape_container.visible, "%s: ShapeContainer hidden" % tr_name)
+			assert_true(math_target_zone.visible, "%s: Math TargetZone visible" % tr_name)
+			assert_true(placeholder_label.visible, "%s: Placeholder label visible" % tr_name)
+			assert_eq(level_manager.shape_pieces.size(), 0, "%s: 0 stale shape pieces" % tr_name)
+			assert_true(level_manager.math_pieces.size() > 0, "%s: Math pieces active" % tr_name)
+
+	main_node.queue_free()
+
+
+func test_run_lifecycle_isolation() -> void:
+	print("\n[TEST] Run Lifecycle Transitions Isolation (Standard, Daily, Replay, Retry, Menu)")
+	var main_node: Node2D = MainScene.instantiate() as Node2D
+	root.add_child(main_node)
+	await _sync_physics()
+
+	var level_manager: LevelManager = main_node.get_node_or_null("LevelManager") as LevelManager
+	var math_container: Node2D = main_node.get_node_or_null("MathContainer") as Node2D
+	var shape_container: Node2D = main_node.get_node_or_null("ShapeContainer") as Node2D
+
+	# 1. Return to Main Menu
+	main_node.return_to_main_menu()
+	assert_true(not math_container.visible, "Menu: MathContainer is hidden")
+	assert_true(not shape_container.visible, "Menu: ShapeContainer is hidden")
+	assert_eq(level_manager.math_pieces.size(), 0, "Menu: 0 math pieces")
+	assert_eq(level_manager.shape_pieces.size(), 0, "Menu: 0 shape pieces")
+
+	# 2. Start Standard Run
+	main_node.start_game_from_menu()
+	await _sync_physics()
+	if level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
+		assert_true(shape_container.visible, "Standard Run: ShapeContainer visible for shape level")
+		assert_true(not math_container.visible, "Standard Run: MathContainer hidden for shape level")
+	else:
+		assert_true(math_container.visible, "Standard Run: MathContainer visible for math level")
+		assert_true(not shape_container.visible, "Standard Run: ShapeContainer hidden for math level")
+
+	# 3. Play Again
+	main_node._on_play_again_pressed()
+	await _sync_physics()
+	if level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
+		assert_true(shape_container.visible, "Play Again: ShapeContainer visible for shape level")
+		assert_true(not math_container.visible, "Play Again: MathContainer hidden for shape level")
+	else:
+		assert_true(math_container.visible, "Play Again: MathContainer visible for math level")
+		assert_true(not shape_container.visible, "Play Again: ShapeContainer hidden for math level")
+
+	# 4. Try Again
+	main_node._on_try_again_pressed()
+	await _sync_physics()
+	if level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
+		assert_true(shape_container.visible, "Try Again: ShapeContainer visible for shape level")
+		assert_true(not math_container.visible, "Try Again: MathContainer hidden for shape level")
+	else:
+		assert_true(math_container.visible, "Try Again: MathContainer visible for math level")
+		assert_true(not shape_container.visible, "Try Again: ShapeContainer hidden for math level")
+
+	# 5. Clean Return
+	main_node.return_to_main_menu()
+	assert_true(not math_container.visible, "Post-run Menu: MathContainer is hidden")
+	assert_true(not shape_container.visible, "Post-run Menu: ShapeContainer is hidden")
 
 	main_node.queue_free()

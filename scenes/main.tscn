@@ -323,6 +323,7 @@ color_ramp = SubResource("Gradient_particles")
 visible = false
 
 [node name="MathContainer" type="Node2D" parent="."]
+visible = false
 
 [node name="TargetZone" type="Area2D" parent="MathContainer"]
 position = Vector2(360, 540)

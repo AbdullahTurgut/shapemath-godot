@@ -532,8 +532,21 @@ func _set_gameplay_visible(is_vis: bool) -> void:
 	if success_lbl: success_lbl.visible = false
 	if next_btn: next_btn.visible = false
 	if in_game_menu_btn: in_game_menu_btn.visible = is_vis
-	if shape_cnt: shape_cnt.visible = is_vis
-	if math_cnt: math_cnt.visible = is_vis
+
+	if not is_vis:
+		if shape_cnt: shape_cnt.visible = false
+		if math_cnt: math_cnt.visible = false
+	else:
+		if level_manager and level_manager.current_level_data:
+			if level_manager.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
+				if shape_cnt: shape_cnt.visible = true
+				if math_cnt: math_cnt.visible = false
+			else:
+				if math_cnt: math_cnt.visible = true
+				if shape_cnt: shape_cnt.visible = false
+		else:
+			if shape_cnt: shape_cnt.visible = false
+			if math_cnt: math_cnt.visible = false
 
 
 func _on_next_button_pressed() -> void:
