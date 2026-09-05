@@ -128,7 +128,7 @@ func _run_tests() -> void:
 	lm.summary_delay = 0.01
 	lm.failure_delay = 0.01
 
-	assert(lm.levels.size() == 57, "Scenario T: Pool contains exactly 57 levels")
+	assert(lm.levels.size() == 72, "Scenario T: Pool contains exactly 72 levels")
 
 	start_btn.pressed.emit()
 	await process_frame

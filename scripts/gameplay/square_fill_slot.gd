@@ -71,9 +71,12 @@ func set_hint(piece_color: Color, symbol: String, hint_mode: int) -> void:
 			if hint_visual:
 				hint_visual.visible = true
 				hint_visual.color = Color(1.0, 1.0, 1.0, 0.03)
-			if hint_label and slot_index >= 0 and slot_index < SPATIAL_CUES_3X3.size():
+			var cue_symbol: String = symbol
+			if cue_symbol.is_empty() and slot_index >= 0 and slot_index < SPATIAL_CUES_3X3.size():
+				cue_symbol = SPATIAL_CUES_3X3[slot_index]
+			if hint_label and not cue_symbol.is_empty():
 				hint_label.visible = true
-				hint_label.text = SPATIAL_CUES_3X3[slot_index]
+				hint_label.text = cue_symbol
 				hint_label.modulate = Color(0.4, 0.52, 0.68, 0.45)
 
 

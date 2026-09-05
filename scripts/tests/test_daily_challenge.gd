@@ -219,6 +219,19 @@ func _run_tests() -> void:
 	var solve_current := func():
 		if scene_lm.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
 			scene_lm._process_shape_success(scene_lm.shape_piece_a, scene_lm.shape_piece_b)
+		elif scene_lm.current_level_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+			for p in scene_lm.square_fill_pieces:
+				var target_slot: SquareFillSlot = null
+				for s in scene_lm.square_fill_slots:
+					if s.slot_index == p.target_slot_index:
+						target_slot = s
+						break
+				assert(target_slot != null, "Target slot found for piece")
+				p.reset_piece()
+				p.global_position = target_slot.global_position
+				await _sync_physics()
+				scene_lm._on_square_fill_piece_dropped(p)
+			return
 		else:
 			var target_p: DraggablePiece = null
 			for p in scene_lm.math_pieces:
@@ -234,6 +247,18 @@ func _run_tests() -> void:
 	var drop_wrong := func():
 		if scene_lm.current_level_data.puzzle_type == LevelData.PuzzleType.SHAPE_MATCH:
 			scene_lm._handle_deliberate_failure(scene_lm.shape_piece_a)
+		elif scene_lm.current_level_data.puzzle_type == LevelData.PuzzleType.SQUARE_FILL:
+			var p: DraggablePiece = scene_lm.square_fill_pieces[0]
+			var wrong_slot: SquareFillSlot = null
+			for s in scene_lm.square_fill_slots:
+				if s.slot_index != p.target_slot_index:
+					wrong_slot = s
+					break
+			assert(wrong_slot != null, "Wrong slot found")
+			p.reset_piece()
+			p.global_position = wrong_slot.global_position
+			await _sync_physics()
+			scene_lm._on_square_fill_piece_dropped(p)
 		else:
 			var wp: DraggablePiece = null
 			for p in scene_lm.math_pieces:

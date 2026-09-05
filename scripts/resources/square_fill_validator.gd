@@ -29,6 +29,19 @@ static func validate(data: LevelData) -> Array[String]:
 			if data.square_fill_piece_symbols[i].strip_edges().is_empty():
 				errors.append("square_fill_piece_symbols[%d] is empty" % i)
 
+	# Hint Mode 2 (Hard): require 9 unique non-empty structural symbols
+	if data.square_fill_hint_mode == 2 and data.square_fill_piece_symbols.size() == 9:
+		var structural_symbols: Dictionary = {}
+		for i in range(9):
+			var sym: String = data.square_fill_piece_symbols[i].strip_edges()
+			if not sym.is_empty():
+				if structural_symbols.has(sym):
+					errors.append("Hint Mode 2 requires 9 unique structural symbols; found duplicate '%s' at indices %d and %d" % [
+						sym, structural_symbols[sym], i
+					])
+				else:
+					structural_symbols[sym] = i
+
 	# Visual uniqueness: each of the 9 pieces must have a distinguishable (color, symbol) combination
 	if data.square_fill_piece_colors.size() == 9 and data.square_fill_piece_symbols.size() == 9:
 		var visual_signatures: Dictionary = {}

@@ -44,7 +44,7 @@ func _run_tests() -> void:
 	var lm: LevelManager = main_node.get_node("LevelManager") as LevelManager
 	lm._ensure_levels_loaded()
 
-	assert(lm.levels.size() == 57, "Production pool contains exactly 57 levels (got %d)" % lm.levels.size())
+	assert(lm.levels.size() == 72, "Production pool contains exactly 72 levels (got %d)" % lm.levels.size())
 
 	var t1_count: int = 0
 	var t2_count: int = 0
@@ -72,32 +72,50 @@ func _run_tests() -> void:
 
 		per_tier_type_counts[lvl.tier][lvl.puzzle_type] += 1
 
-	assert(t1_count == 19, "Tier 1 has exactly 19 levels (got %d)" % t1_count)
-	assert(t2_count == 19, "Tier 2 has exactly 19 levels (got %d)" % t2_count)
-	assert(t3_count == 19, "Tier 3 has exactly 19 levels (got %d)" % t3_count)
+	assert(t1_count == 24, "Tier 1 has exactly 24 levels (got %d)" % t1_count)
+	assert(t2_count == 24, "Tier 2 has exactly 24 levels (got %d)" % t2_count)
+	assert(t3_count == 24, "Tier 3 has exactly 24 levels (got %d)" % t3_count)
 
-	# Verify per-tier exact distribution: 6 MATH, 3 SHAPE, 3 MISSING, 3 EQUIV, 3 SEQUENCE, 1 SQUARE_FILL
-	for tier_num in [1, 2, 3]:
-		var counts: Dictionary = per_tier_type_counts[tier_num]
-		assert(counts[LevelData.PuzzleType.MATH_MATCH] == 6, "Tier %d has 6 MATH_MATCH (got %d)" % [tier_num, counts[LevelData.PuzzleType.MATH_MATCH]])
-		assert(counts[LevelData.PuzzleType.SHAPE_MATCH] == 3, "Tier %d has 3 SHAPE_MATCH (got %d)" % [tier_num, counts[LevelData.PuzzleType.SHAPE_MATCH]])
-		assert(counts[LevelData.PuzzleType.MISSING_NUMBER] == 3, "Tier %d has 3 MISSING_NUMBER (got %d)" % [tier_num, counts[LevelData.PuzzleType.MISSING_NUMBER]])
-		assert(counts[LevelData.PuzzleType.EQUIVALENT_EXPRESSION] == 3, "Tier %d has 3 EQUIVALENT_EXPRESSION (got %d)" % [tier_num, counts[LevelData.PuzzleType.EQUIVALENT_EXPRESSION]])
-		assert(counts[LevelData.PuzzleType.NUMBER_SEQUENCE] == 3, "Tier %d has 3 NUMBER_SEQUENCE (got %d)" % [tier_num, counts[LevelData.PuzzleType.NUMBER_SEQUENCE]])
-		assert(counts[LevelData.PuzzleType.SQUARE_FILL] == 1, "Tier %d has 1 SQUARE_FILL (got %d)" % [tier_num, counts[LevelData.PuzzleType.SQUARE_FILL]])
+	# Verify per-tier exact distribution:
+	# Tier 1: 6 MATH, 4 SHAPE, 3 MISSING, 4 EQUIV, 4 SEQUENCE, 3 SQUARE_FILL
+	var c1: Dictionary = per_tier_type_counts[1]
+	assert(c1[LevelData.PuzzleType.MATH_MATCH] == 6, "Tier 1 MATH")
+	assert(c1[LevelData.PuzzleType.SHAPE_MATCH] == 4, "Tier 1 SHAPE")
+	assert(c1[LevelData.PuzzleType.MISSING_NUMBER] == 3, "Tier 1 MISSING")
+	assert(c1[LevelData.PuzzleType.EQUIVALENT_EXPRESSION] == 4, "Tier 1 EQUIV")
+	assert(c1[LevelData.PuzzleType.NUMBER_SEQUENCE] == 4, "Tier 1 SEQUENCE")
+	assert(c1[LevelData.PuzzleType.SQUARE_FILL] == 3, "Tier 1 SQUARE_FILL")
 
-	print("-> TEST 1 PASSED: 57-level pool loading, tier balance and 6-3-3-3-3-1 distribution verified.")
+	# Tier 2: 6 MATH, 4 SHAPE, 4 MISSING, 3 EQUIV, 4 SEQUENCE, 3 SQUARE_FILL
+	var c2: Dictionary = per_tier_type_counts[2]
+	assert(c2[LevelData.PuzzleType.MATH_MATCH] == 6, "Tier 2 MATH")
+	assert(c2[LevelData.PuzzleType.SHAPE_MATCH] == 4, "Tier 2 SHAPE")
+	assert(c2[LevelData.PuzzleType.MISSING_NUMBER] == 4, "Tier 2 MISSING")
+	assert(c2[LevelData.PuzzleType.EQUIVALENT_EXPRESSION] == 3, "Tier 2 EQUIV")
+	assert(c2[LevelData.PuzzleType.NUMBER_SEQUENCE] == 4, "Tier 2 SEQUENCE")
+	assert(c2[LevelData.PuzzleType.SQUARE_FILL] == 3, "Tier 2 SQUARE_FILL")
+
+	# Tier 3: 6 MATH, 4 SHAPE, 3 MISSING, 4 EQUIV, 4 SEQUENCE, 3 SQUARE_FILL
+	var c3: Dictionary = per_tier_type_counts[3]
+	assert(c3[LevelData.PuzzleType.MATH_MATCH] == 6, "Tier 3 MATH")
+	assert(c3[LevelData.PuzzleType.SHAPE_MATCH] == 4, "Tier 3 SHAPE")
+	assert(c3[LevelData.PuzzleType.MISSING_NUMBER] == 3, "Tier 3 MISSING")
+	assert(c3[LevelData.PuzzleType.EQUIVALENT_EXPRESSION] == 4, "Tier 3 EQUIV")
+	assert(c3[LevelData.PuzzleType.NUMBER_SEQUENCE] == 4, "Tier 3 SEQUENCE")
+	assert(c3[LevelData.PuzzleType.SQUARE_FILL] == 3, "Tier 3 SQUARE_FILL")
+
+	print("-> TEST 1 PASSED: 72-level pool loading, tier balance and distribution verified.")
 
 	# ================================================================================
-	# TEST 2: VALIDATE ALL 9 PRODUCTION NUMBER_SEQUENCE RESOURCES VIA SequenceValidator
+	# TEST 2: VALIDATE ALL 12 PRODUCTION NUMBER_SEQUENCE RESOURCES VIA SequenceValidator
 	# ================================================================================
-	print("\n[TEST 2] SequenceValidator validation of all 9 production NUMBER_SEQUENCE levels")
+	print("\n[TEST 2] SequenceValidator validation of all 12 production NUMBER_SEQUENCE levels")
 	var seq_levels: Array[LevelData] = []
 	for lvl in lm.levels:
 		if lvl.puzzle_type == LevelData.PuzzleType.NUMBER_SEQUENCE:
 			seq_levels.append(lvl)
 
-	assert(seq_levels.size() == 9, "Exactly 9 NUMBER_SEQUENCE levels across all 57 levels (got %d)" % seq_levels.size())
+	assert(seq_levels.size() == 12, "Exactly 12 NUMBER_SEQUENCE levels across all 72 levels (got %d)" % seq_levels.size())
 
 	for seq_lvl in seq_levels:
 		var v_res: Dictionary = SequenceValidator.validate_sequence_level(seq_lvl)
@@ -110,7 +128,7 @@ func _run_tests() -> void:
 			v_res.expected
 		])
 
-	print("-> TEST 2 PASSED: All 9 sequence levels passed SequenceValidator.")
+	print("-> TEST 2 PASSED: All 12 sequence levels passed SequenceValidator.")
 
 	# ================================================================================
 	# TEST 3: VALIDATE NEW LEVELS 37..54 (MATH-LIKE) & 55..57 (SQUARE_FILL) INTEGRITY
@@ -138,15 +156,15 @@ func _run_tests() -> void:
 			assert(not seen_choices.has(choice), "Level %d has duplicate choice: %s" % [i, choice])
 			seen_choices.append(choice)
 
-	# Validate Square Fill production levels 55..57
-	for i in range(55, 58):
+	# Validate Square Fill production levels (55..57, 58, 59, 63, 64, 68, 69)
+	for i in [55, 56, 57, 58, 59, 63, 64, 68, 69]:
 		var path: String = "res://data/levels/level_%02d.tres" % i
 		assert(ResourceLoader.exists(path), "Level %d exists on disk" % i)
 		var sq_res: LevelData = load(path)
 		assert(sq_res != null, "Level %d loads as LevelData" % i)
 		var errs: Array[String] = SquareFillValidator.validate(sq_res)
 		assert(errs.is_empty(), "Level %d SQUARE_FILL validation errors: %s" % [i, ", ".join(errs)])
-		assert(sq_res.tier == (i - 54), "Level %d has expected tier %d" % [i, (i - 54)])
+		assert(sq_res.tier in [1, 2, 3], "Level %d has expected tier" % i)
 
 	# Verify curated level 1 unchanged
 	var lvl1: LevelData = load("res://data/levels/level_01.tres")
@@ -154,12 +172,12 @@ func _run_tests() -> void:
 	assert(lvl1.correct_answer == "3", "Curated level 1 answer unchanged")
 	assert(lvl1.tier == 1, "Curated level 1 tier unchanged")
 
-	print("-> TEST 3 PASSED: New levels 37..57 content integrity verified.")
+	print("-> TEST 3 PASSED: New levels 37..72 content integrity verified.")
 
 	# ================================================================================
-	# TEST 4: RUN GENERATION WITH 57-LEVEL POOL (5+5+5, RECENT COOLDOWN, 6 TYPES)
+	# TEST 4: RUN GENERATION WITH 72-LEVEL POOL (5+5+5, RECENT COOLDOWN, 6 TYPES)
 	# ================================================================================
-	print("\n[TEST 4] Run generator with 57-level pool across 10 consecutive runs")
+	print("\n[TEST 4] Run generator with 72-level pool across 10 consecutive runs")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 998877
 

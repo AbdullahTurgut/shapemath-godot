@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+puzzle_type = 3
+prompt_text = "Eşit olanı bul"
+tier = 3
+target_display = "3 × 6"
+correct_answer = "9 + 9"
+answer_choices = Array[String](["9 + 9", "8 + 8", "10 + 7", "12 + 7"])
+choice_colors = Array[Color]([])

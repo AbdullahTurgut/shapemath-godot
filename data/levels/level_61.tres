@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+puzzle_type = 4
+prompt_text = "10, 20, 30, ?"
+tier = 1
+target_display = "?"
+correct_answer = "40"
+answer_choices = Array[String](["35", "40", "45", "50"])
+choice_colors = Array[Color]([])

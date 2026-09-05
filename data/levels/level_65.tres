@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+puzzle_type = 1
+prompt_text = "Şekilleri birleştir"
+tier = 2
+target_display = ""
+correct_answer = ""
+answer_choices = Array[String]([])
+choice_colors = Array[Color]([])
+match_id = "shape_lvl65"
+piece_a_color = Color(0.12, 0.72, 0.58, 1)
+piece_b_color = Color(0.96, 0.44, 0.32, 1)
+piece_a_polygon = PackedVector2Array(-70, -60, 0, -60, 0, -25, 30, -20, 20, 20, 0, 25, 0, 60, -70, 60)
+piece_b_polygon = PackedVector2Array(0, -60, 70, -60, 70, 60, 0, 60, 0, 25, 20, 20, 30, -20, 0, -25)
+shape_a_spawn_pos = Vector2(220, 900)
+shape_b_spawn_pos = Vector2(500, 900)
+shape_a_target_pos = Vector2(360, 640)
+shape_b_target_pos = Vector2(360, 640)
