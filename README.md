@@ -41,7 +41,7 @@
    - Asymmetric drop fairness model: wide tolerance ($d \le 65\text{ px}$) for the correct target slot; strict intent radius ($d \le 45\text{ px}$) for wrong drops.
    - Distinct tier progression across 9 curated levels:
      - **Easy (Tier 1 — Levels 55, 58, 59)**: Strong slot color preview, numerical identifiers (1..9), and intuitive geometric motifs (dots, horizontal bars, corner solids).
-     - **Medium (Tier 2 — Levels 56, 63, 64)**: Dual-layer clue system with subtle 12% row color tints, secondary geometric motifs, and directional tessellation arrows ensuring zero-guesswork solvability.
+     - **Medium (Tier 2 — Levels 56, 63, 64)**: Dual-layer clue system with subtle 12% row color tints, secondary geometric motifs, and directional geometric tessellation using corner wedges, inward edge cues, and a center nexus (Level 64: ◤ ▼ ◥ / ► ◈ ◄ / ◣ ▲ ◢) ensuring deductive, zero-guesswork solvability.
      - **Hard (Tier 3 — Levels 57, 68, 69)**: Deep gradient matrix, continuous circuit/network pathways, and centripetal vector convergence glyphs.
 
 ---
@@ -76,7 +76,7 @@
 
 - **Game Engine**: Godot 4.7.2 (or compatible Godot 4 release)
 - **Scripting Language**: GDScript
-- **Target Platform**: Android (API 21+)
+- **Target Platform**: Android (minSdk 24, targetSdk 36, arm64-v8a only)
 - **Renderer**: Compatibility Renderer (Mobile / GLES3 fallback)
 - **Reference Viewport**: 720x1280 (Portrait)
 
@@ -123,6 +123,7 @@ shape-math/
 
 - **Package ID**: `com.alcor.shapemath`
 - **Orientation**: Portrait (`portrait`)
+- **SDK & Architecture**: minSdk 24, targetSdk 36, `arm64-v8a` only
 - **Exporting via Godot Editor / CLI**:
    ```bash
    godot --headless --export-debug "ShapeMath Android" "builds/debug/ShapeMath-debug.apk"
